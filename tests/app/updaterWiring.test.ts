@@ -22,7 +22,9 @@ describe('app self-update wiring', () => {
 
   it('points the updater at signed GitHub release artifacts', () => {
     expect(tauriConf).toMatch(/"createUpdaterArtifacts":\s*true/);
-    expect(tauriConf).toMatch(/zhaoteng45\/YTDL-Flow\/releases\/latest\/download\/latest\.json/);
+    expect(JSON.parse(tauriConf).plugins.updater.endpoints).toEqual([
+      'https://github.com/zhaoteng45/YTDL-Flow-public/releases/latest/download/latest.json',
+    ]);
     expect(tauriConf).toMatch(/"pubkey":\s*"[A-Za-z0-9+/=]{100,}"/);
   });
 
