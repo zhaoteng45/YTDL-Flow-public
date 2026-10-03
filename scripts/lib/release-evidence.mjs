@@ -54,7 +54,7 @@ export function assertReleaseEvidence(evidence) {
     throw new Error('Invalid release identity');
   }
   for (const report of [evidence.install, evidence.signature, evidence.fresh]) {
-    if (report?.msiSha256 !== evidence.installerSha256) throw new Error('Evidence belongs to a different installer');
+    if (report?.msiSha256?.toLowerCase() !== evidence.installerSha256) throw new Error('Evidence belongs to a different installer');
   }
   if (evidence.fresh.status !== 'passed' || evidence.fresh.nativeSmoke !== 'passed' || evidence.fresh.licenses !== 'passed') {
     throw new Error('Fresh installation verification did not pass');
