@@ -1,43 +1,26 @@
-# Contributing to YTDL-Flow
+# 参与贡献
 
-First off, thank you for considering contributing to YTDL-Flow! It's people like you that make YTDL-Flow such a great tool for everyone.
+开发环境和运行命令见 [README](README.md)。
 
-## Code of Conduct
+## 报告问题
 
-By participating in this project, you are expected to uphold our Code of Conduct. Please report unacceptable behavior to the project maintainers.
+描述以下信息，便于复现：
 
-## How Can I Contribute?
+- 软件版本和操作系统。
+- 操作步骤、预期结果和实际结果。
+- 错误信息，必要时附截图或脱敏日志。
 
-### Reporting Bugs
+提交前查阅已有反馈，避免重复报告。安全问题请按 [SECURITY.md](SECURITY.md) 私下报告，不要公开登录数据。
 
-- Check the FAQ and existing issues to see if the bug has already been reported.
-- Use a clear and descriptive title for the issue.
-- Describe the exact steps which reproduce the problem in as many details as possible.
-- Explain which behavior you expected to see and why, and what you actually saw instead.
-- Include screenshots or animated GIFs if possible.
+## 功能建议
 
-### Suggesting Enhancements
+说明你在什么场景遇到了什么问题，以及希望怎样处理。可以附上操作示例或参考界面。
 
-- Check existing issues to see if the enhancement has already been suggested.
-- Use a clear and descriptive title for the issue.
-- Provide a step-by-step description of the suggested enhancement in detail.
-- Explain why this enhancement would be useful to most YTDL-Flow users.
+## 提交代码
 
-### Pull Requests
+- 每个 PR 尽量围绕一个问题，说明改动和验证结果。
+- 遵循现有代码风格；行为发生变化时更新测试和文档。
+- 运行与改动相关的检查，说明尚未验证的部分。
+- 如有相关问题或讨论，在 PR 中附上链接。
 
-- Pull requests are always welcome!
-- Ensure your code follows the existing style and conventions.
-- Update documentation if your change introduces new features or behavior.
-- Link the pull request to any related issues.
-
-## Development Setup
-
-To set up the development environment, please follow the instructions in the [README.md](README.md).
-
-## Financial Contributions
-
-YTDL-Flow is an open-source project. If you'd like to support the development, please consider donating or sponsoring the project.
-
-## License
-
-By contributing to YTDL-Flow, you agree that your contributions will be licensed under the [MIT License](LICENSE).
+贡献代码按项目的 [MIT 许可证](LICENSE) 提供，第三方代码应保留原有许可证和来源。
