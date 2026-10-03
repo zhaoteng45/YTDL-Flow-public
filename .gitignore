@@ -39,6 +39,7 @@ cookies.txt
 /.impeccable/
 .ai-bridge/
 .scratch/
+/src-tauri/licenses/
 
 # Confirmed local generated cache / temporary inspection output
 __pycache__/

@@ -169,7 +169,7 @@ jobs:
         run: bun scripts/setup-sidecars.mjs --target x86_64-pc-windows-msvc
 
       - name: Build Desktop App
-        run: bun run tauri:build --target x86_64-pc-windows-msvc --bundles msi --config '{"bundle":{"createUpdaterArtifacts":false}}'
+        run: bun run tauri:build --target x86_64-pc-windows-msvc --bundles msi --config '{"bundle":{"createUpdaterArtifacts":false,"resources":["bin/ffmpeg.exe","bin/ffprobe.exe","bin/bun.exe","bin/rustypipe-botguard.exe","plugins/**/*"]}}'
 
   windows-install-trust:
     name: Windows Install Trust
@@ -218,11 +218,28 @@ jobs:
         shell: pwsh
         run: Remove-Item -LiteralPath 'src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi' -Recurse -Force -ErrorAction SilentlyContinue
 
+      - name: Install License Tool
+        run: pwsh -NoProfile -File scripts/install-release-tools.ps1
+
+      - name: Collect Release Licenses
+        run: bun scripts/prepare-release-licenses.mjs
+
+      - name: Build Synthetic Upgrade Baseline
+        run: pwsh -NoProfile -File scripts/build-upgrade-baseline.ps1
+
       - name: Build Install-Trust MSI
         run: bun run tauri:build --target x86_64-pc-windows-msvc --bundles msi --config '{"bundle":{"createUpdaterArtifacts":false}}'
 
       - name: Verify Windows MSI Install Trust
-        run: pwsh -NoProfile -NonInteractive -File scripts/verify-windows-msi-install.ps1
+        run: pwsh -NoProfile -NonInteractive -File scripts/verify-windows-msi-install.ps1 -VerifyLicenses -RunNativeSmoke
+
+      - name: Keep Fresh Install Report
+        shell: pwsh
+        run: Copy-Item -LiteralPath "$env:RUNNER_TEMP/ytdl-flow-install-trust/result.json" -Destination "$env:RUNNER_TEMP/ytdl-flow-install-trust/fresh-install.json"
+
+      - name: Verify Synthetic Upgrade
+        shell: pwsh
+        run: pwsh -NoProfile -NonInteractive -File scripts/verify-windows-msi-install.ps1 -VerifyLicenses -RunNativeSmoke -PreviousMsi "$env:RUNNER_TEMP/ytdl-upgrade-baseline.msi" -BaselineKind synthetic
 
       - name: Upload Install-Trust Diagnostics
         if: always()

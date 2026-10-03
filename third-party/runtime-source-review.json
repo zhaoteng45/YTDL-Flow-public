@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "tools": {
+    "yt-dlp": {
+      "version": "2026.08.19",
+      "complete": false,
+      "pending": "Collect the corresponding sources and build inputs for the PyInstaller executable and its bundled dependencies."
+    },
+    "ffmpeg": {
+      "version": "9.0.2",
+      "complete": false,
+      "pending": "Collect the Gyan essentials build's corresponding FFmpeg and external-library sources, build configuration and license notices."
+    },
+    "bun": {
+      "version": "1.4.2",
+      "complete": false,
+      "pending": "Check the pinned runtime's embedded component notices against the distributed executable."
+    },
+    "rustypipe-botguard": {
+      "version": "0.1.2",
+      "complete": true
+    }
+  }
+}

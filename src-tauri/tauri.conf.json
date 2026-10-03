@@ -35,7 +35,8 @@
       "bin/ffprobe.exe",
       "bin/bun.exe",
       "bin/rustypipe-botguard.exe",
-      "plugins/**/*"
+      "plugins/**/*",
+      "licenses/**/*"
     ],
     "icon": [
       "icons/32x32.png",

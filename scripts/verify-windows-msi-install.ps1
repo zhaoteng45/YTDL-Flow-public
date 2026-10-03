@@ -4,13 +4,21 @@ param(
     [string]$RepoRoot,
     [string]$LogDirectory,
     [switch]$InspectOnly,
-    [switch]$PreserveInstalledProduct
+    [switch]$PreserveInstalledProduct,
+    [switch]$VerifyLicenses,
+    [switch]$RunNativeSmoke,
+    [string]$PreviousMsi,
+    [string]$ExpectedSignerThumbprint,
+    [ValidateSet('released', 'synthetic')][string]$BaselineKind = 'released'
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 if ($InspectOnly -and $PreserveInstalledProduct) {
     throw 'InspectOnly and PreserveInstalledProduct are mutually exclusive'
+}
+if (($VerifyLicenses -or $RunNativeSmoke -or $PreviousMsi) -and ($InspectOnly -or $PreserveInstalledProduct)) {
+    throw 'Release acceptance requires the full install lifecycle'
 }
 
 if (-not $RepoRoot) {
@@ -320,6 +328,10 @@ $report = [ordered]@{
     installedFiles = @()
     installExit = $null
     uninstallExit = $null
+    licenses = 'not-run'
+    nativeSmoke = 'not-run'
+    upgrade = 'not-run'
+    upgradeBaselineKind = $BaselineKind
     error = $null
 }
 
@@ -407,10 +419,35 @@ if ($PreserveInstalledProduct) {
 $installAttempted = $false
 $primaryError = $null
 $cleanupError = $null
+$baselineProductCode = $null
+$baselineAttempted = $false
 $installedPaths = [System.Collections.Generic.List[string]]::new()
 $installLocation = $null
 
+if ($PreviousMsi) {
+    $PreviousMsi = (Resolve-Path -LiteralPath $PreviousMsi).Path
+    $baselineDb = $installer.OpenDatabase($PreviousMsi, 0)
+    $baselineProductCode = Get-MsiProperty -Database $baselineDb -Name 'ProductCode'
+    $baselineVersion = Get-MsiProperty -Database $baselineDb -Name 'ProductVersion'
+    if ((Get-MsiProperty -Database $baselineDb -Name 'UpgradeCode') -ne (Get-MsiProperty -Database $database -Name 'UpgradeCode')) {
+        throw 'Upgrade baseline belongs to another product'
+    }
+    if ([version]$baselineVersion -ge [version]$productVersion -or $baselineProductCode -eq $productCode) {
+        throw 'Upgrade baseline must have an older version and different ProductCode'
+    }
+    if ((Get-ProductState -ProductCode $baselineProductCode) -ne $InstallStateUnknown) {
+        throw 'Upgrade baseline is already installed; refusing to disturb existing registration'
+    }
+    $report.baselineVersion = $baselineVersion
+    $report.baselineSha256 = (Get-FileHash -LiteralPath $PreviousMsi -Algorithm SHA256).Hash
+}
+
 try {
+    if ($PreviousMsi) {
+        $baselineAttempted = $true
+        [void](Invoke-MsiExec -Action Install -Target $PreviousMsi -LogPath (Join-Path $LogDirectory 'baseline-install.log'))
+        if ((Get-ProductState -ProductCode $baselineProductCode) -ne $InstallStateDefault) { throw 'Upgrade baseline installation failed' }
+    }
     $installAttempted = $true
     $report.installExit = Invoke-MsiExec -Action Install -Target $msiPath -LogPath $installLog
 
@@ -454,6 +491,41 @@ try {
             sha256 = (Get-FileHash -LiteralPath $installedPath -Algorithm SHA256).Hash
         }
     }
+    if ($PreviousMsi) {
+        if ((Get-ProductState -ProductCode $baselineProductCode) -ne $InstallStateUnknown) { throw 'Upgrade left the old product registered' }
+        $report.upgrade = 'passed'
+    }
+
+    if ($VerifyLicenses) {
+        $licenseSource = Join-Path $RepoRoot 'src-tauri/licenses/manifest.json'
+        $installedLicenses = Join-Path $installLocation 'licenses'
+        Assert-SameHash -Source $licenseSource -Installed (Join-Path $installedLicenses 'manifest.json')
+        $licenseInfo = [Diagnostics.ProcessStartInfo]::new()
+        $licenseInfo.FileName = (Get-Command bun -CommandType Application).Source
+        $licenseInfo.UseShellExecute = $false
+        $licenseInfo.CreateNoWindow = $true
+        [void]$licenseInfo.ArgumentList.Add((Join-Path $PSScriptRoot 'verify-release-licenses.mjs'))
+        [void]$licenseInfo.ArgumentList.Add($installedLicenses)
+        $licenseProcess = [Diagnostics.Process]::Start($licenseInfo)
+        if ($null -eq $licenseProcess) { throw 'Unable to start license verifier' }
+        try {
+            if (-not $licenseProcess.WaitForExit(30000)) {
+                $licenseProcess.Kill($true)
+                if (-not $licenseProcess.WaitForExit(10000)) { throw 'License verifier cleanup failed' }
+                throw 'License payload verification exceeded 30s'
+            }
+            if ($licenseProcess.ExitCode -ne 0) { throw 'Installed license payload verification failed' }
+        } finally { $licenseProcess.Dispose() }
+        $report.licenses = 'passed'
+    }
+    if ($ExpectedSignerThumbprint) {
+        $signature = Get-AuthenticodeSignature -LiteralPath (Join-Path $installLocation 'yt-dlp-cool.exe')
+        if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Thumbprint -ne $ExpectedSignerThumbprint) { throw 'Installed application signature is invalid or belongs to another signer' }
+    }
+    if ($RunNativeSmoke) {
+        & (Join-Path $PSScriptRoot 'verify-installed-app.ps1') -InstallLocation $installLocation -LogDirectory $LogDirectory
+        $report.nativeSmoke = 'passed'
+    }
 
     $report.status = 'install-verified'
 } catch {
@@ -464,6 +536,16 @@ try {
     $report.status = 'failed'
     $report.error = $_.Exception.Message
 } finally {
+    if ($baselineAttempted -and (Get-ProductState -ProductCode $baselineProductCode) -ne $InstallStateUnknown) {
+        try {
+            [void](Invoke-MsiExec -Action Uninstall -Target $baselineProductCode -LogPath (Join-Path $LogDirectory 'baseline-uninstall.log'))
+            if ((Get-ProductState -ProductCode $baselineProductCode) -ne $InstallStateUnknown) { throw 'Baseline cleanup left a registered product' }
+        } catch {
+            $cleanupError = $_
+            $report.status = 'failed'
+            $report.error = 'Upgrade baseline cleanup failed'
+        }
+    }
     if ($installAttempted -and (Get-ProductState -ProductCode $productCode) -ne $InstallStateUnknown) {
         try {
             $report.uninstallExit = Invoke-MsiExec -Action Uninstall -Target $productCode -LogPath $uninstallLog
@@ -486,7 +568,7 @@ try {
                 }
             }
 
-            if (-not $primaryError) {
+            if (-not $primaryError -and -not $cleanupError) {
                 $report.status = 'passed'
             }
         } catch {

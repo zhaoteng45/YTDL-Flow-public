@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -8,6 +9,10 @@ const ciWorkflow = readFileSync(resolve('.github/workflows/ci.yml'), 'utf8');
 const packageJson = JSON.parse(readFileSync(resolve('package.json'), 'utf8')) as {
   packageManager?: string;
 };
+const releaseConfig = JSON.parse(execFileSync('bun', ['-e',
+  "console.log(JSON.stringify(Bun.YAML.parse(await Bun.file(process.argv[1]).text())))",
+  '.github/workflows/release.yml',
+], { encoding: 'utf8', timeout: 10000 }));
 
 describe('release preparation contract for task 6', () => {
   it('keeps help non-destructive and validates git context explicitly', () => {
@@ -25,10 +30,8 @@ describe('release preparation contract for task 6', () => {
   });
 
   it('threads target-specific MSI-only Tauri args through release and packaging smoke', () => {
-    expect(releaseWorkflow).toContain(
-      "args: '--target x86_64-pc-windows-msvc --bundles msi'",
-    );
-    expect(releaseWorkflow).toContain('args: ${{ matrix.args }}');
+    const build = releaseConfig.jobs['verify-installer'].steps.find((step: { name?: string }) => step.name === 'Build final installer');
+    expect(build.run).toContain('bun run tauri:build --target x86_64-pc-windows-msvc --bundles msi');
 
     expect(ciWorkflow).toContain(
       'bun run tauri:build --target x86_64-pc-windows-msvc --bundles msi',
@@ -36,8 +39,8 @@ describe('release preparation contract for task 6', () => {
   });
 
   it('keeps sidecar steps nested under workflow steps', () => {
-    expect(releaseWorkflow).toMatch(/\r?\n      - name: Prepare Sidecars \(Download & Link\)\r?\n/);
-    expect(releaseWorkflow).not.toMatch(/\r?\n- name: Prepare Sidecars \(Download & Link\)\r?\n/);
+    const preparation = releaseConfig.jobs['verify-installer'].steps.find((step: { name?: string }) => step.name === 'Prepare runtime tools');
+    expect(preparation.run).toBe('bun scripts/prepare-release-sidecars.mjs --target x86_64-pc-windows-msvc');
     expect(ciWorkflow.match(/\r?\n      - name: Mock Sidecars\r?\n/g)).toHaveLength(2);
     expect(ciWorkflow).not.toMatch(/\r?\n- name: Mock Sidecars\r?\n/);
   });

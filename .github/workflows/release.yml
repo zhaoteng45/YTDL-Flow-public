@@ -4,84 +4,128 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      prepare_release:
+        description: 'Create a draft release after all installer checks pass'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  publish-tauri:
+  verify-installer:
+    runs-on: windows-latest
+    timeout-minutes: 60
     permissions:
       contents: write
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: 'windows-latest'
-            target: 'x86_64-pc-windows-msvc'
-            args: '--target x86_64-pc-windows-msvc --bundles msi'
-
-    runs-on: ${{ matrix.platform }}
-
+    env:
+      TAURI_TARGET_TRIPLE: x86_64-pc-windows-msvc
     steps:
       - uses: actions/checkout@v4
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.2
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
-
-      - name: Cache Bun dependencies
-        uses: actions/cache@v4
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+          targets: x86_64-pc-windows-msvc
+      - uses: swatinem/rust-cache@v2
         with:
-          targets: ${{ matrix.target }}
-
-      # --- System Dependencies & FFmpeg ---
-
-      - name: Install dependencies (Ubuntu)
-        if: runner.os == 'Linux'
+          workspaces: src-tauri
+      - run: bun install --frozen-lockfile
+      - name: Check source
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev libappindicator3-dev librsvg2-dev patchelf ffmpeg
-
-      - name: Install dependencies (macOS)
-        if: runner.os == 'macOS'
-        run: brew install ffmpeg
-
-      - name: Install dependencies (Windows)
-        if: runner.os == 'Windows'
-        run: choco install ffmpeg
-
-      # ------------------------------------
-
-      - name: Install Frontend Dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Prepare Sidecars (Download & Link)
-        run: bun scripts/prepare-release-sidecars.mjs --target ${{ matrix.target }}
+          bun run verify:fast
+          bun run test
+          bun run test:packages
+      - name: Check signing credentials
+        id: signing
+        shell: pwsh
         env:
-          TAURI_TARGET_TRIPLE: ${{ matrix.target }}
-
-      - name: Setup Sidecars
-        run: bun scripts/setup-sidecars.mjs --target ${{ matrix.target }}
-
-      - name: Build and Upload
-        uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_TARGET_TRIPLE: ${{ matrix.target }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          WINDOWS_SIGNING_PFX_BASE64: ${{ secrets.WINDOWS_SIGNING_PFX_BASE64 }}
+          WINDOWS_SIGNING_PASSWORD: ${{ secrets.WINDOWS_SIGNING_PASSWORD }}
+          PREPARE_RELEASE: ${{ github.ref_type == 'tag' || inputs.prepare_release == true }}
+        run: |
+          $available = [bool]($env:TAURI_SIGNING_PRIVATE_KEY -and $env:WINDOWS_SIGNING_PFX_BASE64 -and $env:WINDOWS_SIGNING_PASSWORD)
+          "available=$($available.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+          if ($env:PREPARE_RELEASE -eq 'true' -and -not $available) { throw 'Release blocked: updater key and Windows signing certificate credentials are required' }
+          if (-not $available) { Write-Output 'Validation only: release signing has not been configured' }
+      - name: Configure Windows signing
+        if: steps.signing.outputs.available == 'true'
+        env:
+          WINDOWS_SIGNING_PFX_BASE64: ${{ secrets.WINDOWS_SIGNING_PFX_BASE64 }}
+          WINDOWS_SIGNING_PASSWORD: ${{ secrets.WINDOWS_SIGNING_PASSWORD }}
+        run: pwsh -NoProfile -File scripts/configure-release-signing.ps1
+      - name: Prepare runtime tools
+        run: bun scripts/prepare-release-sidecars.mjs --target x86_64-pc-windows-msvc
+      - run: bun scripts/setup-sidecars.mjs --target x86_64-pc-windows-msvc
+      - name: Install license and signature verifiers
+        run: pwsh -NoProfile -File scripts/install-release-tools.ps1
+      - name: Collect licenses
+        run: bun scripts/prepare-release-licenses.mjs
+      - name: Build synthetic upgrade baseline
+        run: pwsh -NoProfile -File scripts/build-upgrade-baseline.ps1
+      - name: Build final installer
+        shell: pwsh
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          SIGNING_AVAILABLE: ${{ steps.signing.outputs.available }}
+        run: |
+          if ($env:SIGNING_AVAILABLE -eq 'true') {
+            bun run tauri:build --target x86_64-pc-windows-msvc --bundles msi --config $env:YTDL_SIGN_CONFIG
+          } else {
+            bun run tauri:build --target x86_64-pc-windows-msvc --bundles msi --config '{"bundle":{"createUpdaterArtifacts":false}}'
+          }
+          if ($LASTEXITCODE -ne 0) { throw 'Final installer build failed' }
+      - name: Verify fresh install and native download
+        shell: pwsh
+        run: |
+          $arguments = @{ VerifyLicenses=$true; RunNativeSmoke=$true }
+          if ($env:YTDL_SIGNER_THUMBPRINT) { $arguments.ExpectedSignerThumbprint=$env:YTDL_SIGNER_THUMBPRINT }
+          & ./scripts/verify-windows-msi-install.ps1 @arguments
+          Copy-Item -LiteralPath "$env:RUNNER_TEMP/ytdl-flow-install-trust/result.json" -Destination "$env:RUNNER_TEMP/ytdl-flow-install-trust/fresh-install.json"
+      - name: Verify synthetic upgrade and native download
+        shell: pwsh
+        run: |
+          $arguments = @{ VerifyLicenses=$true; RunNativeSmoke=$true; PreviousMsi="$env:RUNNER_TEMP/ytdl-upgrade-baseline.msi"; BaselineKind='synthetic' }
+          if ($env:YTDL_SIGNER_THUMBPRINT) { $arguments.ExpectedSignerThumbprint=$env:YTDL_SIGNER_THUMBPRINT }
+          & ./scripts/verify-windows-msi-install.ps1 @arguments
+      - name: Verify installer and updater signatures
+        if: steps.signing.outputs.available == 'true'
+        shell: pwsh
+        run: |
+          $files = @(Get-ChildItem src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi -Filter '*.msi' -File)
+          if ($files.Count -ne 1) { throw 'Expected exactly one signed installer' }
+          ./scripts/verify-release-signatures.ps1 -MsiPath $files[0].FullName -ReportPath "$env:RUNNER_TEMP/ytdl-flow-install-trust/signature.json"
+      - name: Prepare verified release files
+        if: github.ref_type == 'tag' || inputs.prepare_release == true
+        run: bun scripts/prepare-verified-release.mjs
+      - name: Create draft release
+        if: github.ref_type == 'tag' || inputs.prepare_release == true
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $files = @(Get-ChildItem "$env:RUNNER_TEMP/verified-release" -File | ForEach-Object FullName)
+          gh release create "v$version" @files --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --draft --title "YTDL-Flow $version" --notes-file docs/RELEASE_INSTALLER_NOTES.md
+          if ($LASTEXITCODE -ne 0) { throw 'Draft release upload failed' }
+      - name: Upload acceptance reports
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: 'YTDL-Flow v__VERSION__'
-          releaseBody: 'See the assets to download this version and install.'
-          releaseDraft: true
-          prerelease: false
-          args: ${{ matrix.args }}
+          name: release-acceptance-reports
+          path: |
+            ${{ runner.temp }}/ytdl-flow-install-trust/*.json
+            ${{ runner.temp }}/ytdl-flow-install-trust/*.log
+          if-no-files-found: warn

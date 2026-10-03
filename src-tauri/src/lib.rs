@@ -2,6 +2,8 @@ pub mod commands;
 pub mod error;
 pub mod models;
 pub mod notification;
+mod release_smoke;
+mod release_smoke_input;
 pub mod services {
     pub mod capture;
     pub mod cookie_inspection;
@@ -55,6 +57,8 @@ fn set_dpi_awareness() {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() -> Result<(), Box<dyn std::error::Error>> {
+    let smoke_request =
+        release_smoke_input::smoke_request_path(&std::env::args().collect::<Vec<_>>())?;
     #[cfg(target_os = "windows")]
     set_dpi_awareness();
 
@@ -76,7 +80,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
                 let _ = window.set_focus();
             }
         }))
-        .setup(|app| {
+        .setup(move |app| {
             let removed_stale_cookie_files =
                 services::temp_cookie_cleanup::cleanup_stale_temp_cookie_material();
             if removed_stale_cookie_files > 0 {
@@ -92,6 +96,10 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
             // Create NotificationManager after app is built (requires AppHandle)
             let notification_manager = NotificationManager::new(app.handle().clone());
             app.manage(notification_manager);
+            if let Some(request_file) = smoke_request.clone() {
+                let handle = app.handle().clone();
+                tauri::async_runtime::spawn(release_smoke::run(handle, request_file));
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
