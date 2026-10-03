@@ -8,10 +8,7 @@ if ($current.Build -gt 0) { $older = '{0}.{1}.{2}' -f $current.Major,$current.Mi
 elseif ($current.Minor -gt 0) { $older = '{0}.{1}.0' -f $current.Major,($current.Minor - 1) }
 elseif ($current.Major -gt 0) { $older = '{0}.0.0' -f ($current.Major - 1) }
 else { throw 'No older synthetic MSI version is available' }
-$configPath = Join-Path $env:RUNNER_TEMP 'ytdl-baseline-config.json'
-@{ version=$older; bundle=@{ createUpdaterArtifacts=$false } } | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $configPath
-& bun run tauri:build --target x86_64-pc-windows-msvc --bundles msi --config $configPath
-if ($LASTEXITCODE -ne 0) { throw 'Synthetic upgrade baseline build failed' }
+& (Join-Path $PSScriptRoot 'build-release-installer.ps1') -PackageVersion $older
 $msiRoot = [IO.Path]::GetFullPath((Join-Path (Get-Location) 'src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi'))
 $files = @(Get-ChildItem -LiteralPath $msiRoot -Filter '*.msi' -File)
 if ($files.Count -ne 1 -or -not $files[0].FullName.StartsWith($msiRoot + [IO.Path]::DirectorySeparatorChar)) { throw 'Expected exactly one baseline MSI in the build directory' }

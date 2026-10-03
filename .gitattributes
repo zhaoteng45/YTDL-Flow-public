@@ -1,1 +1,2 @@
-*.exe filter=lfs diff=lfs merge=lfs -text
+# Preserve upstream license bytes used by the provenance SHA256 check.
+third-party/npm/*-LICENSE text eol=lf

@@ -169,7 +169,7 @@ jobs:
         run: bun scripts/setup-sidecars.mjs --target x86_64-pc-windows-msvc
 
       - name: Build Desktop App
-        run: bun run tauri:build --target x86_64-pc-windows-msvc --bundles msi --config '{"bundle":{"createUpdaterArtifacts":false,"resources":["bin/ffmpeg.exe","bin/ffprobe.exe","bin/bun.exe","bin/rustypipe-botguard.exe","plugins/**/*"]}}'
+        run: bun run tauri:build --target x86_64-pc-windows-msvc --bundles msi --config '{"bundle":{"createUpdaterArtifacts":false}}'
 
   windows-install-trust:
     name: Windows Install Trust
@@ -228,7 +228,7 @@ jobs:
         run: pwsh -NoProfile -File scripts/build-upgrade-baseline.ps1
 
       - name: Build Install-Trust MSI
-        run: bun run tauri:build --target x86_64-pc-windows-msvc --bundles msi --config '{"bundle":{"createUpdaterArtifacts":false}}'
+        run: pwsh -NoProfile -File scripts/build-release-installer.ps1
 
       - name: Verify Windows MSI Install Trust
         run: pwsh -NoProfile -NonInteractive -File scripts/verify-windows-msi-install.ps1 -VerifyLicenses -RunNativeSmoke

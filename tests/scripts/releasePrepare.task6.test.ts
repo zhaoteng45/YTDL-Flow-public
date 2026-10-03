@@ -31,7 +31,8 @@ describe('release preparation contract for task 6', () => {
 
   it('threads target-specific MSI-only Tauri args through release and packaging smoke', () => {
     const build = releaseConfig.jobs['verify-installer'].steps.find((step: { name?: string }) => step.name === 'Build final installer');
-    expect(build.run).toContain('bun run tauri:build --target x86_64-pc-windows-msvc --bundles msi');
+    expect(build.run).toContain('./scripts/build-release-installer.ps1');
+    expect(readFileSync(resolve('scripts/build-release-installer.ps1'), 'utf8')).toContain('bun run tauri:build --target x86_64-pc-windows-msvc --bundles msi');
 
     expect(ciWorkflow).toContain(
       'bun run tauri:build --target x86_64-pc-windows-msvc --bundles msi',

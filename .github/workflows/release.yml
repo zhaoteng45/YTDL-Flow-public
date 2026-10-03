@@ -81,12 +81,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           SIGNING_AVAILABLE: ${{ steps.signing.outputs.available }}
         run: |
-          if ($env:SIGNING_AVAILABLE -eq 'true') {
-            bun run tauri:build --target x86_64-pc-windows-msvc --bundles msi --config $env:YTDL_SIGN_CONFIG
-          } else {
-            bun run tauri:build --target x86_64-pc-windows-msvc --bundles msi --config '{"bundle":{"createUpdaterArtifacts":false}}'
-          }
-          if ($LASTEXITCODE -ne 0) { throw 'Final installer build failed' }
+          ./scripts/build-release-installer.ps1
       - name: Verify fresh install and native download
         shell: pwsh
         run: |

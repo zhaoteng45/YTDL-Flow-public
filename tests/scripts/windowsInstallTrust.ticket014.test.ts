@@ -38,7 +38,7 @@ describe('TICKET-014 Windows Install Trust contract', () => {
 
   it('makes install trust build its own MSI and invoke the verifier', () => {
     expect(installTrust).toContain(
-      'bun run tauri:build --target x86_64-pc-windows-msvc --bundles msi',
+      'pwsh -NoProfile -File scripts/build-release-installer.ps1',
     );
     expect(installTrust).not.toContain('tauri:build -- --help');
     expect(installTrust).toContain(

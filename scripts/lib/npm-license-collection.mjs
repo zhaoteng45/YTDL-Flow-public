@@ -22,6 +22,19 @@ function resolvePackage(name, from) {
 }
 
 export function collectNpmLicenses(root, output, supplements = {}) {
+  const rootPackage = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+  const workspaces = new Map();
+  for (const pattern of rootPackage.workspaces ?? []) {
+    if (pattern !== 'packages/*') throw new Error(`Unsupported workspace pattern: ${pattern}`);
+    const parent = path.join(root, 'packages');
+    for (const entry of fs.readdirSync(parent, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const dir = fs.realpathSync(path.join(parent, entry.name));
+      const file = path.join(dir, 'package.json');
+      if (fs.existsSync(file)) workspaces.set(JSON.parse(fs.readFileSync(file, 'utf8')).name, dir);
+    }
+  }
+  const workspacePaths = new Set(workspaces.values());
   const seen = new Set();
   const packages = [];
   const visit = (dir, include) => {
@@ -29,7 +42,7 @@ export function collectNpmLicenses(root, output, supplements = {}) {
     if (seen.has(dir)) return;
     seen.add(dir);
     const pkg = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8'));
-    if (include && !pkg.name?.startsWith('@ytdl-flow/')) {
+    if (include && !workspacePaths.has(dir)) {
       const names = fs.readdirSync(dir).filter((name) => /^(licen[cs]e|copying|notice)([.-]|$)/i.test(name));
       const files = names.filter((name) => fs.statSync(path.join(dir, name)).isFile());
       const supplement = supplements[`${pkg.name}@${pkg.version}`];
@@ -44,7 +57,7 @@ export function collectNpmLicenses(root, output, supplements = {}) {
       packages.push({ name: pkg.name, version: pkg.version, license: pkg.license, files: files.map((name) => `${destination}/${name}`) });
     }
     for (const name of Object.keys(pkg.dependencies ?? {})) {
-      visit(resolvePackage(name, dir), true);
+      visit(workspaces.get(name) ?? resolvePackage(name, dir), true);
     }
     for (const name of Object.keys(pkg.optionalDependencies ?? {})) {
       // Optional packages absent on this target are not shipped. When present,
