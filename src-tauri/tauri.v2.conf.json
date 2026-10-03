@@ -1,0 +1,19 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "build": {
+    "beforeDevCommand": "bun run v2:dev",
+    "devUrl": "http://localhost:19021",
+    "beforeBuildCommand": "bun run v2:build",
+    "frontendDist": "../apps/desktop/frontend/dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "YTDL-Flow (React v2 预览)",
+        "width": 900,
+        "height": 720,
+        "maximized": true
+      }
+    ]
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "name": "@ytdl-flow/contracts",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "devDependencies": {
+    "vitest": "^5.0.2"
+  }
+}

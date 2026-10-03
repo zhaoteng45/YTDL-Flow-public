@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title>YTDL-Flow dark-surface icon</title>
+  <desc>Dark-surface variant of the YTDL-Flow brand icon.</desc>
+  <defs>
+
+  </defs>
+  <rect x="72" y="72" width="880" height="880" rx="220" fill="#111827"/>
+  <path d="M500 310 L665 414" fill="none" stroke="#F4C430" stroke-width="84" stroke-linecap="round"/>
+  <path d="M330 300 L590 500 L330 700 Z" fill="none" stroke="#FFFDF8" stroke-width="92" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M690 520 V668" fill="none" stroke="#FFFDF8" stroke-width="82" stroke-linecap="round"/>
+  <path d="M620 632 L690 702 L760 632" fill="none" stroke="#FFFDF8" stroke-width="82" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

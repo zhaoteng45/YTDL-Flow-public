@@ -1,0 +1,11 @@
+title = "YTDL-Flow credential protection"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "netscape-cookie-export"
+description = "Netscape cookie export contains a non-empty cookie value"
+# Seven TAB-separated fields, including #HttpOnly_ rows:
+# https://curl.se/docs/http-cookies.html#cookies-saved-to-disk
+regex = '''(?m)^(?:#HttpOnly_)?[.]?[a-zA-Z0-9.-]+\t(?:TRUE|FALSE)\t[^\t\r\n]*\t(?:TRUE|FALSE)\t[0-9]+\t[^\t\r\n]+\t[^\r\n]+\r?$'''

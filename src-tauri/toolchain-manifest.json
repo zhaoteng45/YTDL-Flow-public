@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "windowsX64": {
+    "yt-dlp": {
+      "version": "2026.08.19",
+      "url": "https://github.com/yt-dlp/yt-dlp/releases/download/2026.08.19/yt-dlp.exe",
+      "sha256": "66674953fe251b89f4d08c5f0e35e0728679bd67ab3d7d05c0562af101dd3e7a"
+    },
+    "ffmpeg": {
+      "version": "9.0.2",
+      "url": "https://www.gyan.dev/ffmpeg/builds/packages/ffmpeg-9.0.2-essentials_build.zip",
+      "sha256": "60f467265b1e312373dbcd92200c2618a74850f98d3d078e94296bb3fa2047ba"
+    },
+    "bun": {
+      "version": "1.4.2",
+      "url": "https://github.com/oven-sh/bun/releases/download/bun-v1.4.2/bun-windows-x64.zip",
+      "sha256": "ce4c17497b2f29712a99d3d53f028de28cd42e3bacb8589599e7f000e49b6405"
+    },
+    "rustypipe-botguard": {
+      "version": "0.1.2"
+    }
+  }
+}

@@ -1,0 +1,96 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { describe, expect, it } from 'vitest';
+
+const releaseScript = readFileSync(resolve('scripts/release.mjs'), 'utf8');
+const releaseWorkflow = readFileSync(resolve('.github/workflows/release.yml'), 'utf8');
+const ciWorkflow = readFileSync(resolve('.github/workflows/ci.yml'), 'utf8');
+const packageJson = JSON.parse(readFileSync(resolve('package.json'), 'utf8')) as {
+  packageManager?: string;
+};
+
+describe('release preparation contract for task 6', () => {
+  it('keeps help non-destructive and validates git context explicitly', () => {
+    expect(releaseScript).toContain("targetVersion === '--help'");
+    expect(releaseScript).toContain('git rev-parse --is-inside-work-tree');
+    expect(releaseScript).toContain('Not inside a git worktree; skipping local git commit/tag steps.');
+  });
+
+  it('runs git add, commit, and tag as distinct failure-reporting steps', () => {
+    expect(releaseScript).toContain('git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml');
+    expect(releaseScript).toContain('git commit -m "chore(release): v${targetVersion}"');
+    expect(releaseScript).toContain('git tag v${targetVersion}');
+    expect(releaseScript).toContain('Git step failed:');
+    expect(releaseScript).not.toContain('Git operations skipped (not a git repo or error).');
+  });
+
+  it('threads target-specific MSI-only Tauri args through release and packaging smoke', () => {
+    expect(releaseWorkflow).toContain(
+      "args: '--target x86_64-pc-windows-msvc --bundles msi'",
+    );
+    expect(releaseWorkflow).toContain('args: ${{ matrix.args }}');
+
+    expect(ciWorkflow).toContain(
+      'bun run tauri:build --target x86_64-pc-windows-msvc --bundles msi',
+    );
+  });
+
+  it('keeps sidecar steps nested under workflow steps', () => {
+    expect(releaseWorkflow).toMatch(/\r?\n      - name: Prepare Sidecars \(Download & Link\)\r?\n/);
+    expect(releaseWorkflow).not.toMatch(/\r?\n- name: Prepare Sidecars \(Download & Link\)\r?\n/);
+    expect(ciWorkflow.match(/\r?\n      - name: Mock Sidecars\r?\n/g)).toHaveLength(2);
+    expect(ciWorkflow).not.toMatch(/\r?\n- name: Mock Sidecars\r?\n/);
+  });
+
+  it('sets up the pinned Bun version in every CI job that directly runs Bun', () => {
+    const bunVersion = packageJson.packageManager?.replace(/^bun@/, '');
+    expect(bunVersion).toBeTruthy();
+
+    const versionCheck = ciWorkflow.slice(
+      ciWorkflow.indexOf('  version-check:'),
+      ciWorkflow.indexOf('  frontend-check:'),
+    );
+    const backendCheck = ciWorkflow.slice(
+      ciWorkflow.indexOf('  backend-check:'),
+      ciWorkflow.indexOf('  desktop-packaging-smoke:'),
+    );
+
+    expect(versionCheck).toContain('uses: oven-sh/setup-bun@v2');
+    expect(versionCheck).toContain(`bun-version: ${bunVersion}`);
+    expect(backendCheck).toContain('uses: oven-sh/setup-bun@v2');
+    expect(backendCheck).toContain(`bun-version: ${bunVersion}`);
+
+    for (const workflow of [ciWorkflow, releaseWorkflow]) {
+      const declared = [...workflow.matchAll(/bun-version:\s*([^\s]+)/g)].map((match) => match[1]);
+      expect(declared.length).toBeGreaterThan(0);
+      expect(new Set(declared)).toEqual(new Set([bunVersion]));
+    }
+  });
+
+  it('provisions every ignored executable required by a clean Windows package', () => {
+    const mockScript = readFileSync(resolve('scripts/mock-sidecars.mjs'), 'utf8');
+    const sidecarScript = readFileSync(resolve('scripts/prepare-release-sidecars.mjs'), 'utf8');
+
+    expect(mockScript).toContain(
+      "const binaries = ['yt-dlp', 'ffmpeg', 'ffprobe', 'bun', 'rustypipe-botguard'];",
+    );
+    expect(sidecarScript).toContain('cargo install rustypipe-botguard');
+    expect(sidecarScript).not.toContain('optional PO Token engine');
+  });
+
+  it('declares rustypipe-botguard preparation and verification in release sidecars script', () => {
+    const sidecarScript = readFileSync(resolve('scripts/prepare-release-sidecars.mjs'), 'utf8');
+    expect(sidecarScript).toContain('rustypipe-botguard');
+    expect(sidecarScript).toContain('Verifying/Upgrading rustypipe-botguard runtime');
+  });
+
+  it('refreshes bundled FFmpeg and Bun on Windows instead of only verifying stale binaries', () => {
+    const sidecarScript = readFileSync(resolve('scripts/prepare-release-sidecars.mjs'), 'utf8');
+
+    expect(sidecarScript).toContain('if (isWin) {');
+    expect(sidecarScript).toContain('Refreshing official FFmpeg release from Gyan.dev');
+    expect(sidecarScript).toContain('Refreshing official Bun release archive');
+    expect(sidecarScript).toContain('} else if (!fs.existsSync(ffmpegDest) || !fs.existsSync(ffprobeDest)) {');
+    expect(sidecarScript).toContain('} else if (!fs.existsSync(bunPath)) {');
+  });
+});

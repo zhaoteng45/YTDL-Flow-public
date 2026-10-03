@@ -1,0 +1,8 @@
+{
+  "source": "https://codeberg.org/ThetaDev/rustypipe-botguard",
+  "commit": "f235ebc1ae89d0fa2c103ca705ff1a312b9be673",
+  "path": "yt_dlp_get_pot_rustypipe/yt_dlp_plugins/extractor/yt_dlp_get_pot_rustypipe.py",
+  "blob": "09e6428d0a85a81d6169b76ca5ea00fbaad370e7",
+  "licenseBlob": "dbb5408e8bc54d66337db22dfdf86ec1a372b8ab",
+  "providerMatchesNormalized": true
+}

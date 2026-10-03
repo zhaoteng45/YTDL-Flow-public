@@ -1,0 +1,235 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ "main", "dev" ]
+  pull_request:
+    branches: [ "main", "dev" ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  version-check:
+    name: Check Version Consistency
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - name: Check Versions
+        run: bun scripts/check-versions.mjs
+
+  frontend-check:
+    name: Frontend (Lint & Build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+
+      - name: Cache Bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+
+      - name: Install Dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Type Check
+        run: bun run typecheck
+
+      - name: Test
+        run: bun run test
+
+      - name: Test Application Package
+        run: bun run test:application
+
+      - name: Test Domain Package
+        run: bun run test:domain
+
+      - name: Test Contracts Package
+        run: bun run test:contracts
+
+      - name: Build Frontend
+        run: bun run build:web
+
+  backend-check:
+    name: Backend (Rust Check & Test)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js (for scripts)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+          targets: x86_64-pc-windows-msvc
+
+      - name: Rust Cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Mock Sidecars
+        run: bun scripts/mock-sidecars.mjs --target x86_64-pc-windows-msvc
+
+      - name: Setup Sidecars
+        run: bun scripts/setup-sidecars.mjs --target x86_64-pc-windows-msvc
+
+      - name: Cargo Fmt
+        run: |
+          cd src-tauri
+          cargo fmt --all -- --check
+
+      - name: Cargo Check
+        run: |
+          cd src-tauri
+          cargo check --locked --target x86_64-pc-windows-msvc --verbose
+
+      - name: Cargo Clippy
+        run: |
+          cd src-tauri
+          cargo clippy --locked --target x86_64-pc-windows-msvc -- -D warnings
+
+      - name: Cargo Test
+        run: |
+          cd src-tauri
+          cargo test --locked --target x86_64-pc-windows-msvc --verbose
+
+  desktop-packaging-smoke:
+    name: Desktop Packaging Smoke
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+
+      - name: Cache Bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Rust Cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install Dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Mock Sidecars
+        run: bun scripts/mock-sidecars.mjs --target x86_64-pc-windows-msvc
+
+      - name: Setup Sidecars
+        run: bun scripts/setup-sidecars.mjs --target x86_64-pc-windows-msvc
+
+      - name: Build Desktop App
+        run: bun run tauri:build --target x86_64-pc-windows-msvc --bundles msi --config '{"bundle":{"createUpdaterArtifacts":false}}'
+
+  windows-install-trust:
+    name: Windows Install Trust
+    runs-on: windows-latest
+    env:
+      TAURI_TARGET_TRIPLE: x86_64-pc-windows-msvc
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+
+      - name: Cache Bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Rust Cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install Dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Prepare Release Sidecars
+        run: bun scripts/prepare-release-sidecars.mjs --target x86_64-pc-windows-msvc
+
+      - name: Setup Sidecars
+        run: bun scripts/setup-sidecars.mjs --target x86_64-pc-windows-msvc
+
+      - name: Clean Install-Trust MSI Output
+        shell: pwsh
+        run: Remove-Item -LiteralPath 'src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi' -Recurse -Force -ErrorAction SilentlyContinue
+
+      - name: Build Install-Trust MSI
+        run: bun run tauri:build --target x86_64-pc-windows-msvc --bundles msi --config '{"bundle":{"createUpdaterArtifacts":false}}'
+
+      - name: Verify Windows MSI Install Trust
+        run: pwsh -NoProfile -NonInteractive -File scripts/verify-windows-msi-install.ps1
+
+      - name: Upload Install-Trust Diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-install-trust-logs
+          path: |
+            ${{ runner.temp }}/ytdl-flow-install-trust/*.log
+            ${{ runner.temp }}/ytdl-flow-install-trust/*.json
+          if-no-files-found: warn

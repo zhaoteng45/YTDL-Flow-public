@@ -1,0 +1,582 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YTDL-Flow Settings IA Candidate</title>
+  <link rel="stylesheet" href="/src/styles.css">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--color-bg);
+      color: var(--color-text);
+      font-family: var(--font-body);
+    }
+    button, input, select { font: inherit; }
+    button, summary { cursor: pointer; }
+    .prototype-shell {
+      width: min(1040px, calc(100vw - 32px));
+      margin: 24px auto 80px;
+      container-type: inline-size;
+    }
+    .prototype-note {
+      margin: 0 0 10px;
+      color: var(--color-text-muted);
+      font: 700 11px/1.4 var(--font-mono);
+    }
+    .settings-window {
+      min-height: 680px;
+      display: grid;
+      grid-template-rows: auto auto minmax(0, 1fr);
+      background: var(--color-surface);
+      border: 3px solid var(--color-border);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-hard);
+      overflow: hidden;
+    }
+    .settings-head {
+      min-height: 64px;
+      padding: 10px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      border-bottom: 2px solid var(--color-border);
+      background: color-mix(in srgb, var(--color-primary) 4%, var(--color-surface));
+    }
+    .title-wrap { min-width: 0; }
+    .settings-head h1 {
+      margin: 0;
+      font-size: 1.05rem;
+      line-height: 1.2;
+    }
+    .settings-head p {
+      margin: 4px 0 0;
+      color: var(--color-text-muted);
+      font-size: .8rem;
+    }
+    .close-btn {
+      width: 44px;
+      height: 44px;
+      flex: 0 0 44px;
+      border: 2px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      background: var(--color-surface);
+      color: var(--color-text);
+      box-shadow: var(--shadow-hard-sm);
+    }
+    .tabs {
+      display: flex;
+      min-width: 0;
+      overflow-x: auto;
+      border-bottom: 1px solid var(--color-border);
+      background: var(--color-bg-alt);
+    }
+    .tab-btn {
+      min-width: 88px;
+      min-height: 48px;
+      padding: 0 16px;
+      border: 0;
+      border-right: 1px solid color-mix(in srgb, var(--color-border) 22%, transparent);
+      border-bottom: 3px solid transparent;
+      background: transparent;
+      color: var(--color-text-muted);
+      font-weight: 800;
+    }
+    .tab-btn[aria-selected="true"] {
+      background: var(--color-surface);
+      color: var(--color-text);
+      border-bottom-color: var(--color-primary);
+    }
+    .tab-btn:hover {
+      color: var(--color-text);
+      background: color-mix(in srgb, var(--color-primary) 7%, var(--color-surface));
+    }
+    .content {
+      min-height: 0;
+      overflow: auto;
+      padding: 18px;
+    }
+    .panel[hidden] { display: none; }
+    .section {
+      margin-bottom: 14px;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      background: var(--color-surface);
+      overflow: hidden;
+    }
+    .section:last-child { margin-bottom: 0; }
+    .section-head {
+      min-height: 52px;
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      background: color-mix(in srgb, var(--color-primary) 4%, var(--color-surface));
+      border-bottom: 1px solid color-mix(in srgb, var(--color-border) 24%, transparent);
+    }
+    .section-head h2 {
+      margin: 0;
+      font-size: .94rem;
+    }
+    .section-head p {
+      margin: 3px 0 0;
+      color: var(--color-text-muted);
+      font-size: .76rem;
+      line-height: 1.45;
+    }
+    .row {
+      min-height: 60px;
+      padding: 10px 14px;
+      display: grid;
+      grid-template-columns: minmax(190px, 1fr) minmax(260px, 1.35fr);
+      align-items: center;
+      gap: 16px;
+      border-bottom: 1px solid color-mix(in srgb, var(--color-border) 14%, transparent);
+    }
+    .row:last-child { border-bottom: 0; }
+    .label strong {
+      display: block;
+      font-size: .87rem;
+    }
+    .label span {
+      display: block;
+      margin-top: 3px;
+      color: var(--color-text-muted);
+      font-size: .75rem;
+      line-height: 1.45;
+    }
+    .control {
+      min-width: 0;
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 8px;
+    }
+    .control.start { justify-content: flex-start; }
+    .btn {
+      min-height: 44px;
+      padding: 0 12px;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      background: var(--color-surface);
+      color: var(--color-text);
+      font-weight: 800;
+      box-shadow: none;
+    }
+    .btn:hover {
+      transform: translateY(-1px);
+      border-color: var(--color-primary);
+      background: color-mix(in srgb, var(--color-primary) 9%, var(--color-surface));
+    }
+    .btn.primary {
+      background: var(--color-primary);
+      color: var(--color-on-primary);
+      border-color: var(--color-border);
+      box-shadow: var(--shadow-hard-sm);
+    }
+    .input, .select {
+      width: min(100%, 360px);
+      min-height: 44px;
+      padding: 0 10px;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      background: var(--color-bg-alt);
+      color: var(--color-text);
+    }
+    .toggle {
+      width: 42px;
+      height: 24px;
+      flex: 0 0 42px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: flex-end;
+      padding: 3px;
+      border: 1px solid var(--color-border);
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--color-primary) 18%, var(--color-surface));
+    }
+    .toggle::after {
+      content: "";
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--color-primary);
+    }
+    .toggle.off {
+      justify-content: flex-start;
+      background: var(--color-bg-alt);
+    }
+    .toggle.off::after { background: var(--color-text-muted); }
+    .status {
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      padding: 4px 8px;
+      border: 1px solid color-mix(in srgb, var(--color-success) 42%, var(--color-border));
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--color-success) 9%, var(--color-surface));
+      color: var(--color-text);
+      font-size: .74rem;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+    .pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .pill {
+      padding: 6px 8px;
+      border: 1px solid var(--color-border);
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--color-primary) 7%, var(--color-surface));
+      font: 700 11px/1 var(--font-mono);
+    }
+    .preview {
+      width: min(100%, 460px);
+      padding: 9px 10px;
+      border: 1px dashed var(--color-border);
+      border-radius: var(--radius-sm);
+      background: var(--color-bg-alt);
+      font: 12px/1.45 var(--font-mono);
+      overflow-wrap: anywhere;
+    }
+    .preference-grid {
+      width: 100%;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(150px, 1fr));
+      gap: 10px;
+    }
+    .preference {
+      min-width: 0;
+      display: grid;
+      gap: 6px;
+    }
+    .preference label,
+    .field-label {
+      color: var(--color-text-muted);
+      font-size: .74rem;
+      font-weight: 800;
+    }
+    .preference .select { width: 100%; }
+    details.disclosure {
+      border-top: 1px solid color-mix(in srgb, var(--color-border) 16%, transparent);
+    }
+    details.disclosure > summary {
+      min-height: 50px;
+      padding: 0 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      list-style: none;
+      font-size: .86rem;
+      font-weight: 800;
+    }
+    details.disclosure > summary::-webkit-details-marker { display: none; }
+    .disclosure-hint {
+      color: var(--color-text-muted);
+      font-size: .72rem;
+      font-weight: 700;
+    }
+    details.disclosure > summary .disclosure-hint::after {
+      content: '  ▾';
+      color: var(--color-primary);
+    }
+    details.disclosure[open] > summary .disclosure-hint::after {
+      content: '  ▴';
+    }
+    .disclosure-body {
+      padding: 0 14px 14px;
+      display: grid;
+      gap: 10px;
+    }
+    .tool-row {
+      min-height: 58px;
+      padding: 8px 14px;
+      display: grid;
+      grid-template-columns: minmax(120px, .7fr) minmax(150px, 1fr) auto;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 1px solid color-mix(in srgb, var(--color-border) 14%, transparent);
+    }
+    .tool-row:last-child { border-bottom: 0; }
+    .mono {
+      color: var(--color-text-muted);
+      font: 12px/1.4 var(--font-mono);
+    }
+    .range-wrap {
+      width: min(100%, 360px);
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 10px;
+    }
+    .range-wrap input {
+      display: block;
+      width: 100%;
+      margin: 0;
+      box-sizing: border-box;
+    }
+    .candidate-footer {
+      margin-top: 10px;
+      color: var(--color-text-muted);
+      font: 700 10px/1.5 var(--font-mono);
+    }
+    @media (max-width: 760px) {
+      .prototype-shell { width: calc(100vw - 16px); margin-top: 8px; }
+    }
+    @container (max-width: 760px) {
+      .settings-head { padding-inline: 12px; }
+      .content { padding: 12px; }
+      .row { grid-template-columns: 1fr; gap: 8px; }
+      .control { justify-content: flex-start; }
+      .preference-grid { grid-template-columns: 1fr; }
+      .tool-row { grid-template-columns: 1fr; }
+      .tool-row .btn { justify-self: start; }
+      .section-head { align-items: flex-start; }
+      .section-head > .btn { flex: 0 0 auto; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .btn:hover { transform: none; }
+    }
+  </style>
+</head>
+<body>
+  <main class="prototype-shell">
+    <p class="prototype-note">THROWAWAY CANDIDATE · A + local C disclosure · no persistence · no backend mutations</p>
+    <section class="settings-window" aria-labelledby="candidate-title">
+      <header class="settings-head">
+        <div class="title-wrap">
+          <h1 id="candidate-title">设置</h1>
+          <p>普通用户优先；专家参数按需展开</p>
+        </div>
+        <button class="close-btn" type="button" aria-label="关闭设置">×</button>
+      </header>
+
+      <nav class="tabs" role="tablist" aria-label="设置分类">
+        <button class="tab-btn" type="button" role="tab" data-tab="general">常规</button>
+        <button class="tab-btn" type="button" role="tab" data-tab="output">输出</button>
+        <button class="tab-btn" type="button" role="tab" data-tab="advanced">高级</button>
+        <button class="tab-btn" type="button" role="tab" data-tab="tools">工具</button>
+      </nav>
+
+      <div class="content">
+        <section class="panel" data-panel="general" role="tabpanel">
+          <section class="section" data-section="accounts">
+            <div class="section-head"><div><h2>账号与登录</h2><p>只在站点需要登录态、年龄或地区验证时使用</p></div></div>
+            <div class="row">
+              <div class="label"><strong>Bilibili</strong><span>扫码登录；凭证只保存在本机</span></div>
+              <div class="control"><span class="status">已连接</span><button class="btn" type="button">管理账号</button></div>
+            </div>
+            <div class="row">
+              <div class="label"><strong>YouTube</strong><span>浏览器 Cookies 或 cookies.txt；公开链接通常无需登录</span></div>
+              <div class="control"><span class="status">已配置 · Edge</span><button class="btn" type="button">管理凭证</button></div>
+            </div>
+          </section>
+
+          <section class="section" data-section="notifications">
+            <div class="section-head"><div><h2>通知</h2><p>沿用现有权限请求、失败回滚和持久化行为</p></div><span class="toggle" aria-hidden="true"></span></div>
+            <div class="row"><div class="label"><strong>任务完成</strong><span>下载成功后通知</span></div><div class="control"><span class="toggle" aria-hidden="true"></span></div></div>
+            <div class="row"><div class="label"><strong>任务失败</strong><span>需要手动处理时通知</span></div><div class="control"><span class="toggle" aria-hidden="true"></span></div></div>
+            <div class="row"><div class="label"><strong>任务取消</strong><span>取消任务时通知</span></div><div class="control"><span class="toggle off" aria-hidden="true"></span></div></div>
+          </section>
+        </section>
+
+        <section class="panel" data-panel="output" role="tabpanel" hidden>
+          <section class="section" data-section="filename">
+            <div class="section-head"><div><h2>文件命名</h2><p>保持现有 filenameTemplate 契约；只重组入口</p></div><span class="toggle" aria-hidden="true"></span></div>
+            <div class="row">
+              <div class="label"><strong>组成字段</strong><span>对应当前的标题、平台、作者、日期、字幕语言</span></div>
+              <div class="control start"><div class="pills"><span class="pill">标题</span><span class="pill">平台</span><span class="pill">作者</span><span class="pill">日期</span><span class="pill">字幕语言</span></div></div>
+            </div>
+            <div class="row">
+              <div class="label"><strong>文件名预览</strong><span>最终扩展名仍由真实下载结果决定</span></div>
+              <div class="control"><div class="preview">视频标题 - Marques Brownlee - YouTube.mp4</div></div>
+            </div>
+            <details class="disclosure">
+              <summary><span>高级命名模板</span><span class="disclosure-hint">仅在需要 yt-dlp 模板变量时展开</span></summary>
+              <div class="disclosure-body">
+                <div class="pills"><span class="pill">%(title)s</span><span class="pill">%(extractor)s</span><span class="pill">%(uploader)s</span><span class="pill">%(upload_date)s</span><span class="pill">%(resolution)s</span></div>
+                <label class="preference"><span class="field-label">模板</span><input class="input" aria-label="高级命名模板" value="%(title)s - %(uploader)s.%(ext)s"></label>
+              </div>
+            </details>
+          </section>
+
+          <section class="section" data-section="quality">
+            <div class="section-head"><div><h2>画质与编码</h2><p>这些是默认选择偏好，不承诺转码或最终容器</p></div></div>
+            <div class="row">
+              <div class="label"><strong>默认媒体偏好</strong><span>三个控件独立标注；英文和窄窗口下允许换行</span></div>
+              <div class="control">
+                <div class="preference-grid">
+                  <div class="preference"><label for="resolution">最大分辨率</label><select id="resolution" class="select"><option>最佳画质</option><option>4K (2160p)</option><option>1080p</option></select></div>
+                  <div class="preference"><label for="video-codec">视频编码</label><select id="video-codec" class="select"><option>自动</option><option>H.264</option><option>H.265</option><option>VP9</option><option>AV1</option></select></div>
+                  <div class="preference"><label for="audio-codec">音频编码</label><select id="audio-codec" class="select"><option>自动</option><option>AAC</option><option>Opus</option><option>MP3</option><option>M4A</option></select></div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="section" data-section="postprocess">
+            <div class="section-head"><div><h2>后处理</h2><p>下载完成后的媒体内容处理</p></div></div>
+            <div class="row"><div class="label"><strong>嵌入字幕</strong><span>保持当前 embedSubs 语义</span></div><div class="control"><span class="toggle" aria-hidden="true"></span></div></div>
+            <div class="row"><div class="label"><strong>字幕语言</strong><span>当前常用语言选择仍与 subLangs 对应</span></div><div class="control start"><div class="pills"><span class="pill">简体中文</span><span class="pill">English</span></div></div></div>
+            <div class="row"><div class="label"><strong>SponsorBlock</strong><span>移除平台标记的赞助片段</span></div><div class="control"><span class="toggle" aria-hidden="true"></span></div></div>
+          </section>
+
+          <section class="section" data-section="metadata">
+            <div class="section-head"><div><h2>元数据与附加文件</h2><p>集中媒体标签与 sidecar 文件，避免“归档”被理解成历史库</p></div></div>
+            <div class="row"><div class="label"><strong>嵌入媒体元数据</strong><span>标题、章节等媒体标签</span></div><div class="control"><span class="toggle" aria-hidden="true"></span></div></div>
+            <div class="row"><div class="label"><strong>保存独立封面</strong><span>对应 writeThumbnail</span></div><div class="control"><span class="toggle off" aria-hidden="true"></span></div></div>
+            <div class="row"><div class="label"><strong>导出 info.json</strong><span>对应 writeInfoJson</span></div><div class="control"><span class="toggle off" aria-hidden="true"></span></div></div>
+          </section>
+        </section>
+
+        <section class="panel" data-panel="advanced" role="tabpanel" hidden>
+          <section class="section" data-section="performance">
+            <div class="section-head"><div><h2>下载性能</h2><p>默认值适合大多数下载任务</p></div></div>
+            <div class="row">
+              <div class="label"><strong>并发分片</strong><span>单个任务内部的分片并发；不会改变单槽 FIFO</span></div>
+              <div class="control"><div class="range-wrap"><input aria-label="并发分片" type="range" min="1" max="16" value="4"><strong>4</strong></div></div>
+            </div>
+          </section>
+
+          <section class="section" data-section="network">
+            <div class="section-head"><div><h2>网络与兼容性</h2><p>仅在解析失败、区域限制或站点兼容问题时调整</p></div></div>
+            <div class="row"><div class="label"><strong>代理</strong><span>HTTP / SOCKS5；留空则直连</span></div><div class="control"><input class="input" aria-label="代理" placeholder="http://127.0.0.1:7890"></div></div>
+            <div class="row"><div class="label"><strong>User-Agent</strong><span>默认自动；支持预设和自定义模式</span></div><div class="control"><select class="select" aria-label="User-Agent"><option>自动</option><option>Chrome Desktop</option><option>自定义…</option></select></div></div>
+            <div class="row"><div class="label"><strong>YouTube Client</strong><span>Smart 为默认；保留 Android / Web / iOS / TV</span></div><div class="control"><select class="select" aria-label="YouTube Client"><option>Smart（推荐）</option><option>Android</option><option>Web</option><option>iOS</option><option>TV</option></select></div></div>
+            <details class="disclosure" data-section="youtube-expert">
+              <summary><span>YouTube 专家参数</span><span class="disclosure-hint">仅特定 Client 需要 · 折叠不会清空值</span></summary>
+              <div class="disclosure-body">
+                <label class="preference"><span class="field-label">PO Token</span><input class="input" aria-label="PO Token" placeholder="可选"></label>
+                <label class="preference"><span class="field-label">Visitor Data</span><input class="input" aria-label="Visitor Data" placeholder="可选"></label>
+                <span class="disclosure-hint">生产实现继续沿用当前 Web / iOS 的条件显示和已有值，不改变适用逻辑。</span>
+              </div>
+            </details>
+          </section>
+        </section>
+
+        <section class="panel" data-panel="tools" role="tabpanel" hidden>
+          <section class="section" data-section="app-update">
+            <div class="section-head"><div><h2>YTDL-Flow 更新</h2><p>应用自身版本和签名更新流程</p></div></div>
+            <div class="tool-row"><strong>YTDL-Flow</strong><span class="mono">当前版本 2.0.1</span><button class="btn primary" type="button">检查更新</button></div>
+          </section>
+
+          <section class="section" data-section="toolchain">
+            <div class="section-head"><div><h2>下载工具链</h2><p>版本、维护、环境信息集中在一个区域</p></div><button class="btn" type="button">复制环境信息</button></div>
+            <div class="tool-row"><strong>yt-dlp</strong><span class="mono">2026.09.28</span><button class="btn" type="button">更新</button></div>
+            <div class="tool-row"><strong>FFmpeg</strong><span class="mono">7.1</span><button class="btn" type="button">重装</button></div>
+            <div class="tool-row"><strong>Bun</strong><span class="mono">1.4.2</span><button class="btn" type="button">更新</button></div>
+          </section>
+
+          <section class="section" data-section="health">
+            <div class="section-head"><div><h2>系统健康</h2><p>诊断并处理残留 yt-dlp / FFmpeg 进程</p></div></div>
+            <div class="row"><div class="label"><strong>后台进程检查</strong><span>真实生产状态继续区分检查中、正常、发现残留和失败</span></div><div class="control"><span class="status">未发现残留</span><button class="btn" type="button">重新检查</button></div></div>
+            <div class="row"><div class="label"><strong>发现残留时</strong><span>沿用当前清理、延迟复查和错误恢复</span></div><div class="control"><button class="btn" type="button">清理残留进程</button></div></div>
+          </section>
+        </section>
+      </div>
+    </section>
+    <p class="candidate-footer">结构冻结候选：常规 / 输出 / 高级 / 工具。示例状态与版本只用于设计检查，不代表生产默认值或运行结果。</p>
+  </main>
+
+  <script>
+    var tabs = Array.from(document.querySelectorAll('.tab-btn'));
+    var panels = Array.from(document.querySelectorAll('.panel'));
+    var allowed = ['general', 'output', 'advanced', 'tools'];
+
+    function currentTabFromUrl() {
+      var value = new URLSearchParams(location.search).get('tab') || 'general';
+      return allowed.indexOf(value) >= 0 ? value : 'general';
+    }
+
+    function activate(tab, focus) {
+      tabs.forEach(function (button) {
+        var selected = button.dataset.tab === tab;
+        button.setAttribute('aria-selected', selected ? 'true' : 'false');
+        button.tabIndex = selected ? 0 : -1;
+        if (selected && focus) button.focus();
+      });
+      panels.forEach(function (panel) {
+        panel.hidden = panel.dataset.panel !== tab;
+      });
+      var params = new URLSearchParams(location.search);
+      params.set('tab', tab);
+      history.replaceState(null, '', '?' + params.toString());
+      requestAnimationFrame(runChecks);
+    }
+
+    tabs.forEach(function (button, index) {
+      button.addEventListener('click', function () {
+        activate(button.dataset.tab, false);
+      });
+      button.addEventListener('keydown', function (event) {
+        if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight' && event.key !== 'Home' && event.key !== 'End') return;
+        event.preventDefault();
+        var next = index;
+        if (event.key === 'ArrowRight') next = (index + 1) % tabs.length;
+        if (event.key === 'ArrowLeft') next = (index - 1 + tabs.length) % tabs.length;
+        if (event.key === 'Home') next = 0;
+        if (event.key === 'End') next = tabs.length - 1;
+        activate(tabs[next].dataset.tab, true);
+      });
+    });
+
+    function runChecks() {
+      var failures = [];
+      var root = document.querySelector('.settings-window');
+      var active = tabs.find(function (button) { return button.getAttribute('aria-selected') === 'true'; });
+      var panel = panels.find(function (item) { return !item.hidden; });
+      var expected = {
+        general: ['accounts', 'notifications'],
+        output: ['filename', 'quality', 'postprocess', 'metadata'],
+        advanced: ['performance', 'network', 'youtube-expert'],
+        tools: ['app-update', 'toolchain', 'health']
+      };
+
+      if (!root) failures.push('settings window missing');
+      if (root && root.scrollWidth > root.clientWidth + 1) failures.push('settings window horizontal overflow');
+      if (tabs.filter(function (button) { return button.getAttribute('aria-selected') === 'true'; }).length !== 1) failures.push('selected tab count');
+      if (panels.filter(function (item) { return !item.hidden; }).length !== 1) failures.push('visible panel count');
+      if (!active || !panel || active.dataset.tab !== panel.dataset.panel) failures.push('tab/panel mismatch');
+
+      if (panel) {
+        (expected[panel.dataset.panel] || []).forEach(function (section) {
+          if (!panel.querySelector('[data-section="' + section + '"]')) failures.push('missing section ' + section);
+        });
+        if (panel.scrollWidth > panel.clientWidth + 1) failures.push('active panel horizontal overflow');
+      }
+
+      document.querySelectorAll('button').forEach(function (button) {
+        if (button.offsetParent === null) return;
+        if (button.getBoundingClientRect().height < 44) failures.push('button below 44px: ' + button.textContent.trim());
+      });
+
+      window.__YTDL_SETTINGS_CANDIDATE__ = {
+        done: true,
+        passed: failures.length ? 0 : 1,
+        total: 1,
+        failures: failures,
+        scenarios: [active ? active.dataset.tab : 'unknown']
+      };
+    }
+
+    var params = new URLSearchParams(location.search);
+    var theme = params.get('theme');
+    if (theme) document.documentElement.dataset.theme = theme;
+
+    var requestedWidth = Number(params.get('width') || 0);
+    if (Number.isFinite(requestedWidth) && requestedWidth >= 320 && requestedWidth <= 1040) {
+      document.querySelector('.prototype-shell').style.width = requestedWidth + 'px';
+      document.querySelector('.prototype-shell').style.maxWidth = 'none';
+    }
+
+    activate(currentTabFromUrl(), false);
+  </script>
+</body>
+</html>

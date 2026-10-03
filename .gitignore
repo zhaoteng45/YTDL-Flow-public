@@ -1,0 +1,47 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+bun.lockb
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Sensitive files
+/.env
+/.env.*
+!/.env.example
+!/.env.*.example
+/9d3d3111-1ed1-43d7-9c96-1c713b509a23.txt
+src-tauri/chrome
+opencode.jsonc
+cookies-*.json
+cookies.txt
+
+# AI/local working state
+/.impeccable/
+.ai-bridge/
+.scratch/
+
+# Confirmed local generated cache / temporary inspection output
+__pycache__/
+/nul
+/out.txt
+/YTDL-Flow_2.0.1_x64_zh-CN.wxs

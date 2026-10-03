@@ -1,0 +1,15 @@
+{
+  "name": "@ytdl-flow/application",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@ytdl-flow/contracts": "workspace:*",
+    "@ytdl-flow/domain": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "^5.0.2"
+  }
+}

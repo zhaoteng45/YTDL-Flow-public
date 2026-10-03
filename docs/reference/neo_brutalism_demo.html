@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neo-Brutalism Theme Preview</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        bg: '#F9F5EB',       // Warm Cream
+                        surface: '#FFFFFF',   // White
+                        primary: '#D33F49',   // Brick Red
+                        secondary: '#F4D35E', // Mustard Yellow
+                        accent: '#2A9D8F',    // Retro Teal
+                        border: '#000000',    // Pure Black
+                    },
+                    boxShadow: {
+                        'hard': '4px 4px 0px 0px #000000',
+                        'hard-hover': '2px 2px 0px 0px #000000',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Courier New', Courier, monospace; /* Mono font fits brutalism well */
+        }
+        .neobrutalism-border {
+            border: 2px solid #000000;
+        }
+    </style>
+</head>
+<body class="bg-bg text-black min-h-screen p-8">
+
+    <!-- Navbar -->
+    <nav class="bg-surface neobrutalism-border shadow-hard mb-12 p-4 flex justify-between items-center">
+        <div class="text-2xl font-bold tracking-tighter">NEO-BRUTALISM</div>
+        <div class="space-x-4">
+            <a href="#" class="font-bold hover:underline">Home</a>
+            <a href="#" class="font-bold hover:underline">About</a>
+            <span class="bg-secondary neobrutalism-border px-2 py-1 text-sm font-bold">v2.0</span>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <div class="max-w-4xl mx-auto text-center mb-16">
+        <span class="bg-accent text-white neobrutalism-border px-4 py-1 text-lg font-bold mb-4 inline-block shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+            NEW STYLE ARRIVED
+        </span>
+        <h1 class="text-6xl font-black mb-6 leading-tight">
+            THE <span class="text-primary underline decoration-4 underline-offset-4">BRICK RED</span> REVOLUTION
+        </h1>
+        <p class="text-xl mb-8 font-bold text-gray-800">
+            High contrast. Hard shadows. No apologies. <br>
+            This is how your application looks with the new rules.
+        </p>
+        
+        <div class="flex justify-center gap-6">
+            <!-- Primary Button (Brick Red) -->
+            <button class="bg-primary text-white neobrutalism-border shadow-hard hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-hard-hover transition-all font-bold px-8 py-4 text-xl rounded-md">
+                GET STARTED
+            </button>
+            
+            <!-- Secondary Button (White/Outline) -->
+            <button class="bg-surface text-black neobrutalism-border shadow-hard hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-hard-hover transition-all font-bold px-8 py-4 text-xl rounded-md">
+                LEARN MORE
+            </button>
+        </div>
+    </div>
+
+    <!-- Components Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
+        
+        <!-- Card 1: Feature -->
+        <div class="bg-surface neobrutalism-border shadow-hard p-6 rounded-lg relative">
+            <div class="absolute -top-4 -right-4 bg-secondary neobrutalism-border px-3 py-1 font-bold shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                POPULAR
+            </div>
+            <h3 class="text-2xl font-bold mb-3">Modular Components</h3>
+            <p class="mb-4 font-medium">Everything is modular. Just copy, paste, and adjust the border width.</p>
+            <div class="h-2 bg-black w-full mb-4"></div>
+            <button class="w-full bg-accent text-white neobrutalism-border py-2 font-bold hover:bg-opacity-90">
+                View Details
+            </button>
+        </div>
+
+        <!-- Card 2: Form Elements -->
+        <div class="bg-surface neobrutalism-border shadow-hard p-6 rounded-lg">
+            <h3 class="text-2xl font-bold mb-4">Input Fields</h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="block font-bold mb-1">Username</label>
+                    <input type="text" placeholder="johndoe" class="w-full bg-bg neobrutalism-border p-2 focus:outline-none focus:bg-secondary transition-colors">
+                </div>
+                <div>
+                    <label class="block font-bold mb-1">Status</label>
+                    <select class="w-full bg-bg neobrutalism-border p-2">
+                        <option>Active</option>
+                        <option>Offline</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 3: Color Palette -->
+        <div class="bg-primary neobrutalism-border shadow-hard p-6 rounded-lg text-white">
+            <h3 class="text-2xl font-bold mb-3">Primary Color</h3>
+            <p class="mb-4 font-bold">#D33F49 (Brick Red)</p>
+            <div class="bg-surface text-black neobrutalism-border p-4">
+                <p class="font-bold">Contrast Check:</p>
+                <p>This box is White on Red.</p>
+            </div>
+        </div>
+
+    </div>
+
+</body>
+</html>

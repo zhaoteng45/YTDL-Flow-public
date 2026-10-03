@@ -1,0 +1,909 @@
+/* System-authentic theme refinements.
+   Fluent sources: Fluent 2 layout/color/typography/elevation, Microsoft WinUI Gallery, Files.
+   Material sources: Material 3, Now in Android, Material Web, Vuetify.
+   These themes intentionally allow theme-specific layout geometry while preserving app semantics. */
+
+/* ================================
+   Fluent / Windows 11
+   ================================ */
+:root[data-theme="fluent"] {
+  --brand-primary: #843D4B;
+  --brand-hover: #71313E;
+  --brand-pressed: #5E2633;
+  --brand-soft: #F2E5E7;
+  --neutral-canvas: #E7E0D8;
+  --neutral-surface: #FAF7F2;
+  --neutral-surface-subtle: #EAE3DD;
+  --neutral-text-primary: #302D30;
+  --neutral-text-secondary: #665D5F;
+  --neutral-border: #D8CCC7;
+  --neutral-border-strong: #8F777A;
+  --color-selected-bg: #EBD4D9;
+  --brand-foreground: var(--brand-pressed);
+  --neutral-hover: var(--neutral-surface-subtle);
+  /* Windows density and borders; independent wine palette with shared states. */
+  --color-bg: var(--neutral-canvas);
+  --color-surface: var(--neutral-surface);
+  --color-surface-subtle: var(--neutral-hover);
+
+  --fluent-control-pressed: var(--neutral-hover);
+  --fluent-header-surface: var(--color-surface);
+  --fluent-navigation-surface: var(--color-surface-subtle);
+
+  --border-width: 1px;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --shadow-hard: none;
+  --shadow-hard-sm: none;
+  --fluent-pane-width: 360px;
+
+  cursor: auto;
+  background-image: none;
+  background-color: var(--color-bg);
+}
+
+:root[data-theme="fluent"] body {
+  background: var(--color-bg);
+}
+
+:root[data-theme="fluent"] .container {
+  max-width: none;
+  width: 100%;
+  padding: 0 20px 20px;
+}
+
+:root[data-theme="fluent"] .header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  min-height: 56px;
+  margin: 0 -20px 18px;
+  padding: 6px 20px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.075);
+  background: rgba(248, 248, 248, 0.80);
+  backdrop-filter: blur(24px) saturate(125%);
+}
+
+:root[data-theme="fluent"] .logo {
+  color: var(--color-text);
+  font-family: 'Segoe UI Variable Display', 'Segoe UI', system-ui, sans-serif;
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  text-transform: none;
+  text-shadow: none;
+}
+
+:root[data-theme="fluent"] .badge {
+  padding: 2px 7px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--color-secondary);
+  color: var(--color-on-secondary);
+  box-shadow: none;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+:root[data-theme="fluent"] .dedication-badge {
+  padding: 5px 10px;
+  border: 1px solid rgba(0, 0, 0, 0.055);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.46);
+  box-shadow: none;
+}
+
+:root[data-theme="fluent"] .dedication-icon {
+  font-size: 1rem;
+}
+
+:root[data-theme="fluent"] .dedication-text,
+:root[data-theme="fluent"] .highlight-name {
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+
+:root[data-theme="fluent"] .highlight-name {
+  color: var(--color-primary);
+  background: transparent;
+  padding: 0;
+}
+
+:root[data-theme="fluent"] .theme-label {
+  display: none;
+}
+
+:root[data-theme="fluent"] .header-actions .header-control {
+  min-height: 44px;
+  border: 1px solid rgba(0, 0, 0, 0.065);
+  border-bottom-color: rgba(0, 0, 0, 0.14);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.64);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.035);
+  transition:
+    background-color 100ms ease,
+    border-color 100ms ease,
+    box-shadow 100ms ease,
+    color 100ms ease;
+}
+
+:root[data-theme="fluent"] .header-actions .header-control:hover:not(:disabled) {
+  transform: none;
+  background: rgba(255, 255, 255, 0.90);
+  border-color: rgba(0, 0, 0, 0.10);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.055);
+}
+
+:root[data-theme="fluent"] .header-actions .header-control:active:not(:disabled),
+:root[data-theme="fluent"] .header-actions .header-control.is-open,
+:root[data-theme="fluent"] .header-actions .header-control.active {
+  transform: none;
+  background: var(--fluent-control-pressed);
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.035);
+}
+
+:root[data-theme="fluent"] .app-layout {
+  display: grid;
+  grid-template-columns: var(--fluent-pane-width) minmax(0, 1fr);
+  gap: 0;
+  align-items: stretch;
+  overflow: clip;
+  min-height: calc(100vh - 94px);
+  border: 1px solid rgba(0, 0, 0, 0.075);
+  border-radius: 12px;
+  background: rgba(251, 251, 251, 0.78);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.055);
+  backdrop-filter: blur(24px) saturate(115%);
+}
+
+:root[data-theme="fluent"] .sidebar {
+  width: auto;
+  min-width: 0;
+  position: static;
+  z-index: auto;
+  gap: 0;
+  background: rgba(246, 246, 246, 0.76);
+  border-right: 1px solid rgba(0, 0, 0, 0.075);
+}
+
+:root[data-theme="fluent"] .sidebar-panel {
+  height: 100%;
+  padding: 20px 18px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+:root[data-theme="fluent"] .panel-title {
+  margin: 0 0 14px;
+  padding: 0 4px 10px;
+  border: 0;
+  color: var(--color-text);
+  font-family: 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+:root[data-theme="fluent"] .main-content {
+  min-width: 0;
+  padding: 26px 28px 32px;
+  background: rgba(255, 255, 255, 0.62);
+}
+
+:root[data-theme="fluent"] .section-title {
+  margin-bottom: 14px !important;
+  color: var(--color-text);
+  font-size: 1.28rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-transform: none;
+}
+
+:root[data-theme="fluent"] .neo-box {
+  border: 1px solid rgba(0, 0, 0, 0.065);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.80);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.045);
+  backdrop-filter: blur(16px);
+}
+
+:root[data-theme="fluent"] .sidebar-panel.neo-box {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+:root[data-theme="fluent"] .download-card {
+  border-color: rgba(0, 0, 0, 0.07);
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.035);
+}
+
+:root[data-theme="fluent"] .download-card.analyzing {
+  border-color: var(--color-border);
+}
+
+:root[data-theme="fluent"] .download-card.downloading {
+  border-color: var(--color-primary);
+}
+
+:root[data-theme="fluent"] .download-card.completed {
+  border-color: rgba(0, 0, 0, 0.07);
+}
+
+:root[data-theme="fluent"] .download-card.error {
+  border-color: var(--color-error);
+}
+
+:root[data-theme="fluent"] .download-card:hover {
+  transform: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.055);
+}
+
+:root[data-theme="fluent"] .queue-toolbar {
+  padding: 4px 0 12px;
+  border-bottom: 0;
+  background: transparent;
+}
+
+:root[data-theme="fluent"] .filter-pill {
+  border: 1px solid transparent;
+  border-radius: 6px;
+  box-shadow: none;
+}
+
+:root[data-theme="fluent"] .filter-pill.active {
+  border-color: color-mix(in srgb, var(--color-primary) 18%, transparent);
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+  color: var(--color-primary-hover);
+}
+
+:root[data-theme="fluent"] .empty-state {
+  max-width: 640px;
+  border: 1px solid rgba(0, 0, 0, 0.055);
+  box-shadow: none;
+}
+
+:root[data-theme="fluent"] .modal-overlay {
+  background: rgba(0, 0, 0, 0.30);
+  backdrop-filter: blur(10px);
+}
+
+:root[data-theme="fluent"] .auth-modal,
+:root[data-theme="fluent"] .qr-modal {
+  border: 1px solid rgba(0, 0, 0, 0.10);
+  border-radius: 12px;
+  background: rgba(250, 250, 250, 0.98);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.18);
+}
+
+:root[data-theme="fluent"] .settings-modal-content {
+  width: min(94vw, 1040px);
+  max-width: 1040px;
+  height: min(86vh, 820px);
+  container: settings-frame / inline-size;
+  border: 1px solid rgba(0, 0, 0, 0.10);
+  border-radius: 12px;
+  background: rgba(250, 250, 250, 0.96);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.20);
+}
+
+:root[data-theme="fluent"] .settings-container {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  background: var(--fluent-header-surface);
+}
+
+:root[data-theme="fluent"] .settings-header {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.07);
+  background: rgba(250, 250, 250, 0.92);
+}
+
+:root[data-theme="fluent"] .settings-header h3 {
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+:root[data-theme="fluent"] .settings-tabs {
+  grid-column: 1;
+  grid-row: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 12px 8px;
+  border-right: 1px solid rgba(0, 0, 0, 0.07);
+  border-bottom: 0;
+  background: var(--fluent-navigation-surface);
+}
+
+:root[data-theme="fluent"] .tab-btn {
+  justify-content: flex-start;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 0;
+  border-left: 3px solid transparent;
+  border-radius: 4px;
+  color: var(--color-text);
+  font-weight: 500;
+}
+
+:root[data-theme="fluent"] .tab-btn:hover {
+  border-bottom-color: transparent;
+  background: rgba(0, 0, 0, 0.035);
+}
+
+:root[data-theme="fluent"] .tab-btn.active {
+  border-bottom-color: transparent;
+  border-left-color: var(--color-primary);
+  background: rgba(255, 255, 255, 0.78);
+  color: var(--color-text);
+}
+
+:root[data-theme="fluent"] .settings-content {
+  grid-column: 2;
+  grid-row: 2;
+  min-width: 0;
+  background: var(--color-surface);
+}
+
+/* ================================
+   Material 3 / Google
+   ================================ */
+:root[data-theme="material"] {
+  /* Clean compatibility aliases: three surface roles, not DOM depth levels. */
+  --md-sys-color-primary: var(--brand-primary);
+  --md-sys-color-on-primary: var(--brand-on-primary);
+  --md-sys-color-primary-container: var(--color-selected-bg);
+  --md-sys-color-on-primary-container: var(--brand-foreground);
+  --md-sys-color-secondary: var(--neutral-surface);
+  --md-sys-color-on-secondary: var(--neutral-text-primary);
+  --md-sys-color-secondary-container: var(--color-surface-subtle);
+  --md-sys-color-on-secondary-container: var(--color-text);
+  --md-sys-color-tertiary: var(--brand-foreground);
+  --md-sys-color-on-tertiary: var(--brand-on-primary);
+  --md-sys-color-tertiary-container: var(--brand-soft);
+  --md-sys-color-on-tertiary-container: var(--brand-foreground);
+  --md-sys-color-error: var(--semantic-danger-text);
+  --md-sys-color-surface: var(--neutral-canvas);
+  --md-sys-color-surface-dim: var(--color-surface-subtle);
+  --md-sys-color-surface-container-lowest: var(--color-surface);
+  --md-sys-color-surface-container-low: var(--color-surface);
+  --md-sys-color-surface-container: var(--color-surface-subtle);
+  --md-sys-color-surface-container-high: var(--color-surface-subtle);
+  --md-sys-color-surface-container-highest: var(--color-surface-subtle);
+  --md-sys-color-on-surface: var(--color-text);
+  --md-sys-color-surface-variant: var(--color-surface-subtle);
+  --md-sys-color-on-surface-variant: var(--color-text-muted);
+  --md-sys-color-outline: var(--color-border-strong);
+  --md-sys-color-outline-variant: var(--color-border);
+
+  --border-width: 1px;
+  --radius-sm: 12px;
+  --radius-md: 20px;
+  --radius-lg: 28px;
+  --shadow-hard: none;
+  --shadow-hard-sm: none;
+
+  cursor: auto;
+}
+
+:root[data-theme="material"] body {
+  background: var(--md-sys-color-surface);
+}
+
+:root[data-theme="material"] .container {
+  max-width: 1760px;
+  width: 100%;
+  padding: 12px 24px 32px;
+}
+
+:root[data-theme="material"] .header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  min-height: 64px;
+  margin: 0 -8px 18px;
+  padding: 8px;
+  border: 0;
+  background: color-mix(in srgb, var(--md-sys-color-surface) 92%, transparent);
+  backdrop-filter: blur(18px);
+}
+
+:root[data-theme="material"] .logo {
+  color: var(--md-sys-color-on-surface);
+  font-family: 'Roboto', 'Segoe UI', system-ui, sans-serif;
+  font-size: 1.45rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  text-shadow: none;
+}
+
+:root[data-theme="material"] .badge {
+  padding: 4px 9px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--md-sys-color-primary-container);
+  color: var(--md-sys-color-on-primary-container);
+  box-shadow: none;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+:root[data-theme="material"] .dedication-badge {
+  padding: 7px 12px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--md-sys-color-secondary-container);
+  box-shadow: none;
+}
+
+:root[data-theme="material"] .dedication-icon {
+  font-size: 1rem;
+}
+
+:root[data-theme="material"] .dedication-text,
+:root[data-theme="material"] .highlight-name {
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+:root[data-theme="material"] .highlight-name {
+  color: var(--md-sys-color-on-secondary-container);
+  background: transparent;
+  padding: 0;
+}
+
+:root[data-theme="material"] .theme-label {
+  display: none;
+}
+
+:root[data-theme="material"] .header-actions .header-control {
+  min-height: 44px;
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 999px;
+  background: var(--md-sys-color-surface-container-low);
+  box-shadow: none;
+  transition:
+    background-color 160ms cubic-bezier(0.2, 0, 0, 1),
+    border-color 160ms cubic-bezier(0.2, 0, 0, 1),
+    color 160ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+:root[data-theme="material"] .header-actions .header-control:hover:not(:disabled) {
+  transform: none;
+  background: var(--md-sys-color-surface-container-high);
+  box-shadow: none;
+}
+
+:root[data-theme="material"] .header-actions .header-control:active:not(:disabled),
+:root[data-theme="material"] .header-actions .header-control.is-open,
+:root[data-theme="material"] .header-actions .header-control.active {
+  transform: none;
+  background: var(--md-sys-color-primary-container);
+  color: var(--md-sys-color-on-primary-container);
+  box-shadow: none;
+}
+
+:root[data-theme="material"] .app-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(330px, 390px);
+  grid-template-areas: "content support";
+  gap: 24px;
+  align-items: start;
+}
+
+:root[data-theme="material"] .main-content {
+  grid-area: content;
+  min-width: 0;
+  gap: 24px;
+}
+
+:root[data-theme="material"] .sidebar {
+  grid-area: support;
+  width: auto;
+  min-width: 0;
+  position: sticky;
+  top: 88px;
+  z-index: 10;
+  gap: 16px;
+}
+
+:root[data-theme="material"] .sidebar-panel {
+  padding: 24px;
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 28px;
+  background: var(--md-sys-color-surface-container-low);
+  box-shadow: none;
+}
+
+:root[data-theme="material"] .panel-title {
+  margin: 0 0 18px;
+  padding: 0;
+  border: 0;
+  color: var(--md-sys-color-on-surface);
+  font-family: 'Roboto', 'Segoe UI', system-ui, sans-serif;
+  font-size: 1.18rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+:root[data-theme="material"] .section-title {
+  margin-bottom: 14px !important;
+  color: var(--md-sys-color-on-surface);
+  font-size: 1.5rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+:root[data-theme="material"] .neo-box {
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 20px;
+  background: var(--md-sys-color-surface-container-low);
+  box-shadow: none;
+}
+
+:root[data-theme="material"] .input-section .neo-button.primary {
+  min-height: 56px;
+  border: 0;
+  border-radius: 18px;
+  background: var(--md-sys-color-primary-container);
+  color: var(--md-sys-color-on-primary-container);
+  box-shadow: 0 1px 3px rgba(25, 28, 27, 0.12);
+}
+
+:root[data-theme="material"] .input-section .neo-button.primary:hover:not(:disabled) {
+  transform: none;
+  background: color-mix(in srgb, var(--md-sys-color-primary-container) 86%, var(--md-sys-color-primary) 14%);
+  box-shadow: 0 3px 8px rgba(25, 28, 27, 0.14);
+}
+
+:root[data-theme="material"] .download-card {
+  border: 1px solid transparent;
+  border-radius: 20px;
+  background: var(--md-sys-color-surface-container-low);
+  box-shadow: none;
+}
+
+:root[data-theme="material"] .download-card.analyzing {
+  border-color: var(--color-border);
+}
+
+:root[data-theme="material"] .download-card.downloading {
+  border-color: var(--color-primary);
+}
+
+:root[data-theme="material"] .download-card.completed {
+  border-color: var(--md-sys-color-outline-variant);
+}
+
+:root[data-theme="material"] .download-card.error {
+  border-color: var(--color-error);
+}
+
+:root[data-theme="material"] .download-card:hover {
+  transform: none;
+  background: var(--md-sys-color-surface-container);
+  box-shadow: none;
+}
+
+:root[data-theme="material"] .queue-toolbar {
+  padding: 0 0 14px;
+  border: 0;
+  background: transparent;
+}
+
+:root[data-theme="material"] .filter-pill {
+  min-height: 44px;
+  border: 1px solid var(--md-sys-color-outline);
+  border-radius: 999px;
+  background: transparent;
+  box-shadow: none;
+}
+
+:root[data-theme="material"] .filter-pill.active {
+  border-color: transparent;
+  background: var(--md-sys-color-secondary-container);
+  color: var(--md-sys-color-on-secondary-container);
+}
+
+:root[data-theme="material"] .empty-state {
+  max-width: 680px;
+  padding: 36px;
+  border: 0;
+  border-radius: 28px;
+  background: var(--md-sys-color-surface-container-low);
+  box-shadow: none;
+}
+
+:root[data-theme="material"] .empty-icon .icon-folder::after {
+  animation: none;
+  filter: none;
+}
+
+:root[data-theme="material"] .modal-overlay {
+  background: rgba(25, 28, 27, 0.32);
+  backdrop-filter: blur(8px);
+}
+
+:root[data-theme="material"] .auth-modal,
+:root[data-theme="material"] .qr-modal {
+  border: 0;
+  border-radius: 28px;
+  background: var(--md-sys-color-surface-container-lowest);
+  box-shadow: 0 20px 56px rgba(25, 28, 27, 0.24);
+}
+
+:root[data-theme="material"] .settings-modal-content {
+  width: min(94vw, 1100px);
+  max-width: 1100px;
+  height: min(88vh, 860px);
+  container: settings-frame / inline-size;
+  border: 0;
+  border-radius: 28px;
+  background: var(--md-sys-color-surface-container-lowest);
+  box-shadow: 0 20px 56px rgba(25, 28, 27, 0.24);
+}
+
+:root[data-theme="material"] .settings-container {
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  background: var(--md-sys-color-surface-container-lowest);
+}
+
+:root[data-theme="material"] .settings-header {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  padding: 20px 24px 14px;
+  border: 0;
+  background: var(--md-sys-color-surface-container-lowest);
+}
+
+:root[data-theme="material"] .settings-header h3 {
+  font-size: 1.4rem;
+  font-weight: 500;
+}
+
+:root[data-theme="material"] .settings-tabs {
+  grid-column: 1;
+  grid-row: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 12px 10px 18px;
+  border: 0;
+  background: var(--md-sys-color-surface-container-low);
+}
+
+:root[data-theme="material"] .tab-btn {
+  justify-content: flex-start;
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 999px;
+  color: var(--md-sys-color-on-surface-variant);
+  font-weight: 500;
+}
+
+:root[data-theme="material"] .tab-btn:hover {
+  border-bottom-color: transparent;
+  background: var(--md-sys-color-surface-container-high);
+  color: var(--md-sys-color-on-surface);
+}
+
+:root[data-theme="material"] .tab-btn.active {
+  border-bottom-color: transparent;
+  background: var(--md-sys-color-primary-container);
+  color: var(--md-sys-color-on-primary-container);
+}
+
+:root[data-theme="material"] .settings-content {
+  grid-column: 2;
+  grid-row: 2;
+  min-width: 0;
+  background: var(--md-sys-color-surface-container-lowest);
+}
+
+/* Material and Fluent both use platform-like cursors rather than decorative themed pointers. */
+:root[data-theme="fluent"],
+:root[data-theme="fluent"] *,
+:root[data-theme="material"],
+:root[data-theme="material"] * {
+  cursor: auto;
+}
+
+:root[data-theme="fluent"] button,
+:root[data-theme="fluent"] [role="button"],
+:root[data-theme="fluent"] select,
+:root[data-theme="material"] button,
+:root[data-theme="material"] [role="button"],
+:root[data-theme="material"] select {
+  cursor: pointer;
+}
+
+:root[data-theme="fluent"] input,
+:root[data-theme="fluent"] textarea,
+:root[data-theme="material"] input,
+:root[data-theme="material"] textarea {
+  cursor: text;
+}
+
+/* Settings navigation adapts to its own available pane width, not just viewport width. */
+@container settings-frame (max-width: 720px) {
+  :root[data-theme="fluent"] .settings-container,
+  :root[data-theme="material"] .settings-container {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  :root[data-theme="fluent"] .settings-tabs,
+  :root[data-theme="material"] .settings-tabs {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 8px 12px;
+    border-right: 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  :root[data-theme="fluent"] .tab-btn,
+  :root[data-theme="material"] .tab-btn {
+    width: auto;
+    flex: 0 0 auto;
+  }
+
+  :root[data-theme="fluent"] .tab-btn {
+    border-left: 0;
+    border-bottom: 3px solid transparent;
+  }
+
+  :root[data-theme="fluent"] .tab-btn.active {
+    border-left-color: transparent;
+    border-bottom-color: var(--color-primary);
+  }
+
+  :root[data-theme="fluent"] .settings-content,
+  :root[data-theme="material"] .settings-content,
+  :root[data-theme="fluent"] .tab-pane,
+  :root[data-theme="material"] .tab-pane,
+  :root[data-theme="fluent"] .setting-group,
+  :root[data-theme="material"] .setting-group {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  :root[data-theme="fluent"] .settings-tool-row,
+  :root[data-theme="material"] .settings-tool-row {
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+
+  :root[data-theme="fluent"] .tool-header,
+  :root[data-theme="material"] .tool-header {
+    flex: 1 1 180px;
+    flex-wrap: wrap;
+  }
+
+  :root[data-theme="fluent"] .tool-actions,
+  :root[data-theme="material"] .tool-actions {
+    max-width: 100%;
+    flex-wrap: wrap;
+  }
+}
+
+/* Material supporting pane becomes leading content on narrower windows. */
+@media (max-width: 1180px) {
+  :root[data-theme="material"] .app-layout {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "support"
+      "content";
+    gap: 18px;
+  }
+
+  :root[data-theme="material"] .sidebar {
+    position: static;
+  }
+}
+
+/* Compact desktop / tablet: collapse Fluent navigation pane and both settings navs. */
+@media (max-width: 900px) {
+  :root[data-theme="fluent"] .container,
+  :root[data-theme="material"] .container {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  :root[data-theme="fluent"] .header {
+    margin-left: -14px;
+    margin-right: -14px;
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  :root[data-theme="fluent"] .app-layout {
+    grid-template-columns: 1fr;
+    border-radius: 10px;
+  }
+
+  :root[data-theme="fluent"] .sidebar {
+    border-right: 0;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.075);
+  }
+
+  :root[data-theme="fluent"] .settings-container,
+  :root[data-theme="material"] .settings-container {
+    display: flex;
+    flex-direction: column;
+  }
+
+  :root[data-theme="fluent"] .settings-tabs,
+  :root[data-theme="material"] .settings-tabs {
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    border-right: 0;
+    border-bottom: 1px solid var(--color-border);
+    padding: 8px 12px;
+  }
+
+  :root[data-theme="fluent"] .tab-btn,
+  :root[data-theme="material"] .tab-btn {
+    width: auto;
+    flex: 0 0 auto;
+  }
+
+  :root[data-theme="fluent"] .tab-btn {
+    border-left: 0;
+    border-bottom: 3px solid transparent;
+  }
+
+  :root[data-theme="fluent"] .tab-btn.active {
+    border-left-color: transparent;
+    border-bottom-color: var(--color-primary);
+  }
+}
+
+@media (max-width: 640px) {
+  :root[data-theme="fluent"] .dedication-badge,
+  :root[data-theme="material"] .dedication-badge {
+    display: none;
+  }
+
+  :root[data-theme="fluent"] .main-content,
+  :root[data-theme="material"] .main-content {
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  :root[data-theme="material"] .sidebar-panel {
+    padding: 18px;
+    border-radius: 20px;
+  }
+}

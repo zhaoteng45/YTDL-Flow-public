@@ -1,0 +1,682 @@
+{
+  "app": {
+    "title": "YTDL-Flow",
+    "theme": "Theme",
+    "settings": "Settings",
+    "operation_panel": "Operations",
+    "no_tasks": "No tasks, add some!",
+    "no_tasks_default": "No tasks, add some!",
+    "no_tasks_light": "No tasks, ready to start",
+    "no_tasks_cobalt-butter": "Workbench ready, start a new download",
+    "no_tasks_blue-coral": "Links ready, capture your media",
+    "no_tasks_teal-butter": "Queue clear, ready when you are",
+    "no_tasks_dark": "The night is young, queue up your media",
+    "no_tasks_codex": "Parchment ready, awaiting ink",
+    "no_tasks_morandi": "No tasks, enjoy the calm",
+    "no_tasks_cyber": "System standby, awaiting input",
+    "no_tasks_fluent": "Start your first task",
+    "no_tasks_material": "Ready for your next download",
+    "no_tasks_pokemon": "Wild Pokémon waiting to be caught",
+    "no_tasks_pingpong": "Table ready, waiting for serve",
+    "no_tasks_paper-plane": "Sky is clear, ready for takeoff",
+    "no_tasks_natural_taupe": "Warm earth, ready for seeds",
+    "no_tasks_natural_olive": "Nature grows, start your flow",
+    "start_guide": "Start with a media link and save the file locally.",
+    "paste_analyze": "Read Clipboard & Analyze",
+    "analyzing": "Analyzing Video Info...",
+    "pending": "Pending",
+    "download_queue": "Download Queue",
+    "dependency_error": "Required components (yt-dlp, ffmpeg, or Bun) are unavailable. Check or update them in Settings → Core Tools.",
+    "current_theme": "Current Theme: {theme}",
+    "theme_light": "Light Mode",
+    "theme_cobalt_butter": "石墨",
+    "theme_blue_coral": "Blue Coral",
+    "theme_teal_butter": "Teal Butter",
+    "theme_codex": "Codex (Vintage)",
+    "theme_morandi": "Morandi (Soft)",
+    "theme_cyber": "Deep Cyber",
+    "theme_fluent": "酒红",
+    "theme_material": "蓝宝石",
+    "theme_pokemon": "Pokémon (Retro)",
+    "theme_pingpong": "Ping Pong (Pro)",
+    "theme_paper-plane": "Paper Plane (Origami)",
+    "theme_natural_taupe": "Natural Taupe",
+    "theme_natural_olive": "Natural Olive",
+    "language": "Language",
+    "detected_links": "Detected {count} links",
+    "clear_all": "Clear All",
+    "task_list": "Task List",
+    "theme_dark": "Dark",
+    "open_folder_failed": "Failed to open file location: {error}",
+    "open_file_failed": "Failed to open the downloaded file: {error}",
+    "workspace_start": "Start a download",
+    "workspace_guide": "Download workflow",
+    "workspace_link": "Paste media links",
+    "workspace_link_hint": "One link per line; each becomes its own task.",
+    "workspace_format": "Choose a format and download",
+    "workspace_format_hint": "Review the format in the task card after analysis.",
+    "workspace_file": "Open your local file",
+    "workspace_file_hint": "Open the file or its folder when the download finishes.",
+    "workspace_hero": "From link to file."
+  },
+  "input": {
+    "placeholder": "Paste one or more video links\nSeparate with new lines, spaces, or tabs",
+    "analyze_btn": "Analyze & Add (Ctrl+Enter)",
+    "select_dir": "Select Download Folder",
+    "save_location": "Save Location",
+    "save_location_default": "Save Location (Default)",
+    "default_dir": "Default Location",
+    "open_dir": "Open Current Folder",
+    "paste": "Paste",
+    "remove_link": "Remove this link",
+    "error_no_link": "No video link entered",
+    "error_no_link_hint": "Please paste or enter at least one video link (starting with http:// or https://)",
+    "error_invalid": "No valid URLs detected",
+    "error_invalid_hint": "Please enter valid links starting with http:// or https://, check spelling and retry",
+    "error_clipboard": "Failed to read clipboard",
+    "error_clipboard_hint": "Please check system clipboard permissions or try manual paste (Ctrl+V)",
+    "default_download_dir": "Default Download Directory",
+    "ready_to_analyze": "Ready to analyze",
+    "drop_hint": "Drop to add links",
+    "pot_badge_ready": "Cookies ready",
+    "pot_badge_idle": "No cookies",
+    "pot_ready_title": "Cookies imported; combine with a logged-in browser for higher quality",
+    "pot_idle_title": "No Cookies imported. Export Netscape/JSON with Cookie-Editor, then import",
+    "cookie_browser": "Browser · {value}",
+    "cookie_file_label": "Cookies file",
+    "cookie_browser_login": "Browser login ({value})",
+    "cookie_import_hint": "Tip: export Netscape/JSON with Cookie-Editor, then import",
+    "error_cookie_file": "Failed to select credential file",
+    "error_cookie_file_hint": "Make sure the file still exists and is readable, then select it again",
+    "error_download_dir": "Failed to select download folder",
+    "error_download_dir_hint": "Make sure the folder is accessible and you have permission, then retry",
+    "error_open_dir": "Failed to open download folder",
+    "error_open_dir_hint": "The folder may have moved, been deleted, or become inaccessible; select the download folder again",
+    "warning_invalid_ignored": "Ignored {count} invalid entries; valid links were still added as tasks.",
+    "link_label": "Media links",
+    "cookie_state": {
+      "none": "Not imported",
+      "unknown": "Not verified",
+      "checking": "Checking",
+      "browser": "Browser credentials not verified",
+      "imported": "Imported; sign-in not verified",
+      "expired": "Expired",
+      "mismatch": "Site mismatch",
+      "invalid": "Invalid or unreadable file"
+    }
+  },
+  "download": {
+    "error": {
+      "network": {
+        "title": "Network Connection Failed",
+        "message": "Cannot connect to video server",
+        "action": "Check network connection or proxy settings, then retry"
+      },
+      "parse": {
+        "title": "Parse Failed",
+        "message": "Cannot parse this link",
+        "action": "Check if URL is correct or if the site is still supported"
+      },
+      "dependency": {
+        "title": "Dependency Missing",
+        "message": "Required component not found",
+        "action": "Check and update yt-dlp/ffmpeg in Settings"
+      },
+      "filesystem": {
+        "title": "File Operation Failed",
+        "message": "Cannot write file",
+        "action": "Check download directory permissions or disk space"
+      },
+      "unknown": {
+        "title": "Download Failed",
+        "message": "An unknown error occurred",
+        "action": "View detailed logs or try downloading again"
+      }
+    }
+  },
+  "settings": {
+    "cookies": "Cookies File (Netscape/TXT)",
+    "cookies_hint": "Click to select cookies.txt",
+    "title": "Settings",
+    "close": "Close",
+    "common": {
+      "copied": "Copied",
+      "copy_failed": "Copy failed"
+    },
+    "browser": {
+      "detected_suffix": " (Detected)",
+      "scanning": "Scanning available browsers...",
+      "auto_matched": "Auto matched: {browser}",
+      "no_usable_cookies": "No usable Cookies detected",
+      "switch_to_file_hint": "Switch to Cookies File mode",
+      "detect_failed": "Browser detection failed"
+    },
+    "tabs": {
+      "general": "General",
+      "format": "Output",
+      "advanced": "Advanced",
+      "tools": "Tools"
+    },
+    "renaming": {
+      "title": "File Naming",
+      "options": {
+        "title": "Title",
+        "platform": "Platform",
+        "uploader": "Author",
+        "date": "Date",
+        "sub_langs": "Sub Langs"
+      },
+      "preview": "Preview",
+      "preview_default": "Default",
+      "template": "Template",
+      "helper": "Customize filename format for better organization.",
+      "advanced_template": "Advanced filename template",
+      "advanced_template_hint": "Expand only when you need yt-dlp template variables",
+      "insert_variable": "Insert {variable}",
+      "variables": {
+        "title": "Video Title",
+        "uploader": "Channel / Author",
+        "upload_date": "Upload Date",
+        "resolution": "Resolution",
+        "id": "Video ID",
+        "ext": "Extension"
+      }
+    },
+    "auth": {
+      "title": "Accounts & Login",
+      "bili_login": "Bilibili QR Login (Recommended)",
+      "bili_helper": "Scan QR code to login directly, no manual cookies needed",
+      "youtube_login": "YouTube Browser Login",
+      "youtube_helper": "Login in your browser, close it, then choose browser cookies here.",
+      "youtube_guide": "Open YouTube Cookies Export Guide",
+      "logged_in_as": "Logged in to Bilibili",
+      "logout": "Logout",
+      "other_login": "ℹ️ Other Sites Login (e.g. YouTube)",
+      "other_guide": "Direct password login is not supported. Please follow these steps:",
+      "step1": "Open and login in <strong>Browser</strong> (e.g. Chrome, Edge).",
+      "step2": "<strong>Close the browser</strong> (Important! Or it cannot be read).",
+      "step3": "Select the corresponding browser here.",
+      "warning": "⚠️ Note: If download is still limited (e.g. 1080p+), try re-login in browser.",
+      "mode": {
+        "none": "None",
+        "browser": "Browser",
+        "file": "File"
+      },
+      "no_browser": "⚠️ No browsers detected",
+      "connected_as": "Connected ({name})"
+    },
+    "health": {
+      "title": "System Health",
+      "zombies_found": "Zombies Detected: {count}",
+      "may_consume_mem": "May consume system memory, cleanup recommended.",
+      "clean": "🧹 Clean Up",
+      "healthy": "System Healthy",
+      "recheck": "🔄 Re-check",
+      "checking": "Checking for leftover processes…",
+      "check_failed": "Failed to check leftover processes: {error}",
+      "clean_failed": "Failed to clean up leftover processes: {error}",
+      "busy": "Media tools are busy ({count} operations); check again when they finish."
+    },
+    "format": {
+      "subtitles_title": "Subtitles",
+      "embed_subs": "Embed Subtitles",
+      "select_lang": "Select Languages:",
+      "metadata_title": "Embed Media Metadata",
+      "metadata_helper": "Write video info (title, author, description) to file metadata.",
+      "sponsorblock_title": "SponsorBlock",
+      "sponsorblock_helper": "Automatically skip sponsor segments (YouTube Only).",
+      "quality_title": "Quality & Codecs",
+      "max_res": "Resolution Preference",
+      "video_codec": "Video Codec Preference",
+      "audio_codec": "Audio Codec Preference",
+      "quality_helper": "These settings prefer matching source formats, fall back when unavailable, and never force transcoding to satisfy a preference.",
+      "res_best": "🌟 Best Available",
+      "codec_auto": "Automatic (quality first)",
+      "codec_h264": "📱 H.264 (Compatible)",
+      "codec_h265": "💎 H.265 (HEVC)",
+      "codec_vp9": "🌐 VP9 (WebM/Google)",
+      "codec_av1": "🔥 AV1 (Efficient)",
+      "audio_aac": "🎼 AAC (Compatible)",
+      "audio_opus": "🌐 Opus (Efficient)",
+      "audio_mp3": "🎵 MP3 (Universal)",
+      "audio_m4a": "🍎 M4A (AAC)",
+      "legacy_codec_hint": "Your saved H.265/AAC preferences are retained. Older versions did not record their origin; use automatic codecs for best quality.",
+      "use_auto": "Use automatic codecs",
+      "keep_codecs": "Keep these preferences"
+    },
+    "advanced": {
+      "ua_default": "Default",
+      "engine_title": "🚀 Core Engine Strategy (Enabled)",
+      "concurrency_title": "Concurrent Fragments",
+      "concurrency_helper": "Number of fragments downloaded concurrently within one task; this does not change the single-slot FIFO. High values may cause congestion or server limits (recommended: 3–5).",
+      "proxy_title": "Proxy",
+      "proxy_placeholder": "e.g., http://127.0.0.1:7890",
+      "proxy_helper": "If you cannot access video sites, enter proxy address (http/socks5). Leave empty to disable.",
+      "ua_title": "User-Agent",
+      "ua_helper": "Spoof specific browser identity. Leave empty unless facing anti-crawler limits.",
+      "admin_mode_title": "🛡️ Admin Mode (Raw Logs)",
+      "admin_mode_helper": "Logs will include sensitive info such as proxy, cookies, and UA.",
+      "admin_mode_confirm_1": "Admin mode will reveal sensitive information. Continue?",
+      "admin_mode_confirm_2": "Please confirm enabling admin mode again.",
+      "update_title": "🔄 Core Update",
+      "update_btn": "Update yt-dlp",
+      "checking": "Checking...",
+      "current_version": "Current: {version}",
+      "check_fail": "Check failed: {msg}",
+      "new_version": "✨ New version: {version}",
+      "latest": "✅ Up to date",
+      "update_helper": "Keep yt-dlp updated to support latest video site algorithms.",
+      "back_to_presets": "Back to Presets",
+      "custom_mode": "✏️ Custom...",
+      "features": {
+        "ignore_error": "✅ Ignore Errors",
+        "resume": "✅ Resume Support",
+        "retry": "✅ Smart Retry",
+        "mp4": "✅ Prefer MP4",
+        "best_quality": "✅ Best Quality",
+        "thumbnail": "✅ Embed Thumb"
+      },
+      "performance_title": "Download Performance",
+      "compatibility_title": "Network & Compatibility"
+    },
+    "cookies_file": {
+      "placeholder": "Select cookies.txt file",
+      "select": "📂 Select File",
+      "helper": "Please select Netscape formatted cookies.txt file."
+    },
+    "bili_login": {
+      "title": "Bilibili Login",
+      "scan_hint_1": "Open",
+      "scan_hint_app": "Bilibili Mobile App",
+      "scan_hint_2": "Click",
+      "scan_hint_icon": "⛶",
+      "scan_hint_3": "Scan QR",
+      "status": {
+        "getting_qr": "Getting QR Code...",
+        "scan_please": "Please scan with Bilibili Mobile App",
+        "error_prefix": "Error: ",
+        "success": "Login success! Saving...",
+        "scanned": "Scanned, please confirm on mobile",
+        "expired": "QR Code expired, please refresh",
+        "poll_retrying": "Connection failed temporarily; retrying ({attempt}/{max})",
+        "poll_failed": "Repeated connection failures; polling stopped. Request a new QR code."
+      }
+    },
+    "languages": {
+      "zh_hans": "Chinese (Simplified)",
+      "en": "English"
+    },
+    "notifications": {
+      "title": "Notification Settings",
+      "enabled": "Enable Notifications",
+      "on_success": "Notify on Success",
+      "on_error": "Notify on Error",
+      "on_cancel": "Notify on Cancel",
+      "permission_denied": "Notification permission denied. Please enable in system settings.",
+      "permission_request": "Request Permission",
+      "hint": "Notifications work even when minimized",
+      "save_failed": "Failed to save notification settings; previous settings were restored",
+      "permission_check_failed": "Failed to read the system notification permission",
+      "load_failed": "Failed to load saved notification settings. Please try again."
+    },
+    "tools": {
+      "title": "Download Toolchain",
+      "hint": "All core binaries are bundled. No manual configuration needed. You can upgrade them here to the latest stable versions.",
+      "updating": "Updating...",
+      "update_btn": "Check Update",
+      "upgrade_btn": "Update Tool",
+      "reinstall_btn": "Re-download",
+      "update_result": "{tool} update result: {result}",
+      "update_failed": "{tool} update failed: {error}"
+    },
+    "app_update": {
+      "title": "YTDL-Flow Update",
+      "current": "Current version",
+      "check_btn": "Check for app updates",
+      "checking": "Checking for updates...",
+      "latest": "Already up to date ✓",
+      "downloading": "Found v{version}, downloading…",
+      "progress": "Downloading {version} ({total} total)…",
+      "restarting": "Installed, relaunching…",
+      "failed": "Update failed, please check your network and retry",
+      "hint": "App updates are signed via GitHub Releases and verified before install. The app relaunches automatically after updating."
+    },
+    "client": {
+      "title": "YouTube Client",
+      "select": "Simulated Client Type",
+      "smart_option": "Smart (multi-client analysis / downloads prefer mweb)",
+      "android_option": "Android (stable / 1080p)",
+      "web_option": "Web (high quality / prone to 403)",
+      "ios_option": "iOS (high quality / requires Token)",
+      "tv_option": "TV (embedded devices)",
+      "po_token_badge": "Optional / auto recommended",
+      "po_token_placeholder": "Leave blank to use the bundled PO Token provider automatically...",
+      "po_token_hint": "The bundled rustypipe BotGuard provider handles this automatically by default; enter a token manually only for troubleshooting.",
+      "optional": "(Optional)",
+      "visitor_data_placeholder": "Enter Visitor Data...",
+      "expert_title": "YouTube expert parameters",
+      "expert_hint": "Only needed by specific clients; collapsing does not clear saved values"
+    },
+    "environment": {
+      "title": "Environment Component Check",
+      "copy_info": "Copy Info",
+      "not_detected": "Not Detected",
+      "detecting": "Checking environment components...",
+      "load_failed": "Failed to inspect environment components. Please retry."
+    },
+    "archive": {
+      "title": "Metadata & Sidecar Files",
+      "thumbnail_title": "Save Standalone Thumbnail (.jpg)",
+      "thumbnail_helper": "Save high-resolution video thumbnail as a standalone .jpg file (auto-converted via FFmpeg for Jellyfin, Emby, Plex, and Windows Explorer).",
+      "json_title": "Export info.json",
+      "json_helper": "Save comprehensive video info, description, tags, and stats to a JSON file for local archiving."
+    },
+    "cookies_pick_file": "Choose",
+    "youtube_auth": {
+      "file_required": "Choose a Cookies file before connecting.",
+      "browser_required": "Choose a browser before connecting.",
+      "file_select_failed": "Failed to choose the Cookies file: {error}",
+      "login_open_failed": "Failed to open the YouTube login page: {error}",
+      "title": "YouTube Login Settings",
+      "description": "Choose how to connect your YouTube account and obtain Cookies:",
+      "browser_tab": "Browser (Recommended)",
+      "file_tab": "Cookies File",
+      "browser_policy_note": "YouTube security restrictions prevent direct sign-in inside the app. Read credentials from a browser where you are already signed in.",
+      "login_step": "Step 1: Sign in to YouTube",
+      "open_login": "Open YouTube in Browser",
+      "browser_step": "Step 2: Choose a browser to extract Cookies",
+      "browser_select_label": "Browser used to extract Cookies",
+      "auto_scan_title": "Scan all browsers for usable Cookies",
+      "auto_match": "Auto Match",
+      "uncommon_browser_tip": "Tip: For uncommon browsers, try Chromium or use file mode.",
+      "extension_step": "Install the browser extension",
+      "store_suffix": "Store",
+      "export_step": "Open YouTube and sign in, then use the extension to download cookies.txt",
+      "choose_file_step": "Choose the downloaded file here:",
+      "file_placeholder": "Choose a file with the button on the right…",
+      "file_path_label": "Cookies file path",
+      "cancel": "Cancel",
+      "confirm": "Connect"
+    },
+    "output": {
+      "postprocess_title": "Post-processing"
+    },
+    "page_hint": {
+      "general": "Manage sign-in, notifications, and download preferences.",
+      "format": "Set quality, audio, and naming defaults. Formats can still be selected per task.",
+      "advanced": "Tune performance and compatibility only when needed.",
+      "tools": "Inspect the environment, tool versions, and application health."
+    }
+  },
+  "download_list": {
+    "summary": {
+      "title": "Queue Summary",
+      "total": "Total",
+      "active": "Active",
+      "waiting": "Waiting",
+      "failed": "Failed",
+      "completed": "Completed",
+      "concurrency": "Active download"
+    },
+    "status": {
+      "analyzed": "Ready to download",
+      "pending": "Pending...",
+      "queued": "Queued...",
+      "downloading": "Downloading",
+      "processing": "Processing...",
+      "completed": "Completed",
+      "error": "Failed",
+      "cancelled": "Cancelled",
+      "parse_failed": "Parse Failed",
+      "download_failed": "Download Failed",
+      "network_failed": "Network Failed",
+      "unknown_error": "Unknown Error"
+    },
+    "groups": {
+      "active": "Active",
+      "waiting": "Waiting",
+      "failed": "Failed",
+      "completed": "Completed"
+    },
+    "subgroups": {
+      "queued": "Queued",
+      "analyzed": "Ready to download"
+    },
+    "failure_kind": {
+      "analysis": "Analysis",
+      "download": "Download",
+      "cancelled": "Cancelled",
+      "unknown": "Unknown"
+    },
+    "headers": {
+      "title": "Title",
+      "progress": "Progress",
+      "status": "Status",
+      "action": "Action"
+    },
+    "actions": {
+      "cmd": "Show/Hide CMD",
+      "log": "Show/Hide Logs",
+      "show_log": "Show logs",
+      "hide_log": "Hide logs",
+      "open_folder": "Open Folder",
+      "open_file": "Open File",
+      "cancel": "Cancel",
+      "remove": "Remove",
+      "retry_download": "Retry Download",
+      "reanalyze": "Reanalyze",
+      "select_format": "Select Download Format",
+      "expand": "Expand section",
+      "collapse": "Collapse section",
+      "show_cmd": "Show CMD",
+      "hide_cmd": "Hide CMD",
+      "show_details": "Show details",
+      "hide_details": "Hide details",
+      "more_actions": "More actions"
+    },
+    "meta": {
+      "channel": "Channel/Author",
+      "duration": "Duration",
+      "resolution": "Resolution",
+      "filesize": "Size",
+      "audio_mode": "Extract Audio",
+      "audio_mode_hint": "Configured to extract pure audio file"
+    },
+    "logs": {
+      "title": "Download Logs",
+      "command": "Command:",
+      "details": "Details:",
+      "empty": "No logs...",
+      "redacted": "Logs are redacted",
+      "copied": "Log copied",
+      "copied_clipboard": "Log copied to clipboard",
+      "copy": "Copy log"
+    },
+    "empty": {
+      "active": "No active tasks right now.",
+      "queued": "Nothing is queued.",
+      "analyzed": "No analyzed tasks are waiting to download.",
+      "failed": "No failed tasks.",
+      "completed": "No completed tasks yet."
+    },
+    "undo": {
+      "removed_title": "Task Removal Notice",
+      "removed_prefix": "Removed: ",
+      "undo_action": "Undo",
+      "dismiss": "Dismiss"
+    },
+    "filter": {
+      "search_placeholder": "Search tasks by title, uploader, or url (press / to focus)...",
+      "all": "All",
+      "active": "Active",
+      "waiting": "Waiting",
+      "failed": "Failed",
+      "completed": "Completed",
+      "empty": "No matching tasks found",
+      "reset": "Reset Filter",
+      "shortcuts_tip": "J/K: Navigate · Space: Action · Del: Remove · /: Search",
+      "search_aria": "Filter tasks",
+      "clear_search": "Clear search",
+      "kbd_nav": "navigate",
+      "kbd_run": "run",
+      "kbd_search": "search",
+      "status_group": "Status filter"
+    },
+    "format_group": {
+      "video": "Video download",
+      "video_hint": "Picture and sound, using quality preferences",
+      "audio": "Extract audio",
+      "audio_hint": "Sound only, in your chosen audio format"
+    },
+    "formats": {
+      "mp4": "MP4 (Recommended)",
+      "mkv": "MKV (Container)",
+      "mp3": "MP3 (Standard Audio)",
+      "flac": "FLAC (Lossless Quality)",
+      "m4a": "M4A (Apple AAC)",
+      "opus": "Opus (Native High Fidelity)"
+    },
+    "progress": "Progress",
+    "quality": {
+      "observed": "Highest observed: {observed}p",
+      "request_limited": "Requested {requested}p; this environment exposed up to {observed}p",
+      "stale_cookie": "Your YouTube cookies have expired. Continuing anonymously.",
+      "capabilities": "Client capability results",
+      "unavailable": "No usable formats observed",
+      "runtime": "Bun challenge",
+      "runtime_failure": "Bun challenge execution failed. Check the diagnostic logs.",
+      "refresh_cookie": "This content requires sign-in. Refresh your YouTube cookies.",
+      "auth_required": "This content requires YouTube sign-in.",
+      "reanalyze": "Analyze again to select the download client.",
+      "no_usable": "No usable video/audio combination was observed."
+    },
+    "recovery": {
+      "decision": "Analyze the video again to update its download client.",
+      "format": "The selected format is unavailable. Analyze again and choose an available format.",
+      "authentication": "This video needs valid signed-in cookies. Update your credentials.",
+      "cookieDecrypt": "Browser cookies could not be decrypted. Use an exported cookie file.",
+      "cookieLocked": "The browser cookie database is busy. Close the browser or import a cookie file.",
+      "disk": "The download disk is full. Free space or choose another location.",
+      "permission": "The download directory is not writable. Choose another location.",
+      "rateLimit": "The site is limiting requests. Wait before retrying manually.",
+      "blocked": "The site rejected the media request. Analyze again; check your network and credentials if it persists.",
+      "protected": "This media is DRM protected and cannot be downloaded by this workflow.",
+      "processing": "Media merge or conversion failed. Choose another format; raw streams may remain in the download folder.",
+      "network": "The connection failed. Check your network or proxy, then retry.",
+      "unknown": "The download did not finish. Review diagnostics before retrying."
+    },
+    "recovery_action": {
+      "reanalyze": "Analyze again",
+      "credentials": "Check credentials",
+      "directory": "Choose save location",
+      "retry": "Retry",
+      "format": "Analyze and choose format"
+    },
+    "task_options": {
+      "title": "Format and section",
+      "source_format": "Source format",
+      "automatic": "Automatic",
+      "start": "Start time",
+      "end": "End time",
+      "full_end": "End of video",
+      "hint": "Leave blank for the full video. Use seconds or hours:minutes:seconds. Cut points depend on source keyframes.",
+      "invalid_format": "The selected format is unavailable. Analyze again.",
+      "invalid_section": "Invalid time. The end must be later than the start.",
+      "subtitle_failed": "Subtitles failed. Media was retried without subtitles; subtitles will not be included."
+    },
+    "diagnostics": {
+      "attemptId": "Attempt",
+      "phase": "State",
+      "client": "Actual client",
+      "authMode": "Credentials",
+      "exitCode": "Exit code",
+      "format": "Actual format",
+      "reason": "Failure reason",
+      "unknown": "Not recorded"
+    },
+    "transfer_phase": {
+      "video": "Video transfer",
+      "audio": "Audio transfer",
+      "processing": "Merge or conversion",
+      "transfer": "Media transfer"
+    },
+    "details": {
+      "title": "Task details",
+      "options": "Download options",
+      "diagnostics": "Attempt diagnostics",
+      "cookies": "Cookies",
+      "anonymous": "Anonymous"
+    }
+  },
+  "pending_list": {
+    "formats": {
+      "video": "MP4 Video (Default)",
+      "mkv": "MKV Video",
+      "audio": "Audio Only"
+    },
+    "select_all": "Select All",
+    "format_label": "Format:",
+    "start_download": "🚀 Start Download",
+    "meta": {
+      "resolution": "Best Res",
+      "size": "Est. Size",
+      "codecs": "Codecs",
+      "filename": "Filename: "
+    },
+    "download_this": "Download This"
+  },
+  "video_card": {
+    "mp4": "MP4 Video",
+    "mkv": "MKV Video",
+    "audio": "Audio Only"
+  },
+  "notification": {
+    "success": {
+      "title": "✅ Download Complete",
+      "batch": "✅ Multiple Downloads Complete"
+    },
+    "error": {
+      "title": "❌ Download Failed",
+      "batch": "❌ Multiple Downloads Failed"
+    },
+    "cancel": {
+      "title": "⏹️ Cancelled",
+      "batch": "⏹️ Multiple Downloads Cancelled"
+    },
+    "tasks_completed": "tasks completed",
+    "open_folder": "Open Folder"
+  },
+  "capture": {
+    "title": "Resource capture",
+    "start": "Start capture",
+    "stop": "Stop capture",
+    "idle": "Not capturing",
+    "running": "Capturing with an isolated {browser} instance",
+    "browser_default": "Edge",
+    "isolation_hint": "Opens a browser with a disposable profile. It never changes your system proxy and never reads your daily browser profile.",
+    "empty": "Open a page with video or audio in the capture browser.",
+    "browser_closed": "The capture browser was closed, so discovery has ended.",
+    "start_failed": "Could not start resource capture: {error}",
+    "stop_failed": "Could not stop resource capture: {error}",
+    "import_failed": "Could not import the download task: {error}",
+    "import": "Import download task",
+    "unsupported_auth": "Phase 1 cannot replay credentials for this resource",
+    "unsupported_kind": "Phase 1 only imports direct video/audio resources",
+    "rejected": {
+      "not_found": "That resource is no longer in the candidate list. Start capture again.",
+      "inactive": "Capture has ended. Start capture again.",
+      "unsupported_scheme": "This resource scheme is not supported and cannot be imported.",
+      "forbidden_destination": "This resource points to a local or private address, so it cannot be imported.",
+      "auth_required": "Phase 1 cannot replay credentials for this resource",
+      "unsupported_kind": "Phase 1 does not execute HLS, DASH, or stream resources yet. Choose a direct video/audio resource.",
+      "limit_reached": "The candidate list is full. Stop and start capture again."
+    },
+    "failure": {
+      "expired": "The capture context expired. Capture this resource again.",
+      "revoked": "The capture context was released. Capture this resource again.",
+      "not_found": "The capture context no longer exists. Capture this resource again.",
+      "row_mismatch": "The capture context belongs to a different task. Capture this resource again.",
+      "start_timeout": "Task start timed out; cleaning up automatically"
+    }
+  }
+}

@@ -1,0 +1,68 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "YTDL-Flow",
+  "version": "3.1.1",
+  "identifier": "com.zhaoxiaofeng.ytdl-flow",
+  "build": {
+    "beforeDevCommand": "bun run dev",
+    "devUrl": "http://localhost:29579",
+    "beforeBuildCommand": "bun run build:web",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "YTDL-Flow",
+        "width": 800,
+        "height": 600,
+        "maximized": true
+      }
+    ],
+    "withGlobalTauri": true,
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' https: asset: https://asset.localhost data:; script-src 'self'; style-src 'self' 'unsafe-inline';"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "createUpdaterArtifacts": true,
+    "externalBin": [
+      "bin/yt-dlp"
+    ],
+    "resources": [
+      "bin/ffmpeg.exe",
+      "bin/ffprobe.exe",
+      "bin/bun.exe",
+      "bin/rustypipe-botguard.exe",
+      "plugins/**/*"
+    ],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "windows": {
+      "nsis": {
+        "languages": [
+          "SimpChinese",
+          "English"
+        ]
+      },
+      "wix": {
+        "language": "zh-CN"
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "active": true,
+      "endpoints": [
+        "https://github.com/zhaoteng45/YTDL-Flow-public/releases/latest/download/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDcxNEJEQUJFMzkwNEIyRTUKUldUbHNnUTV2dHBMY1hiV1hpTDM5UldFZ1BpclIzSlJaTWtEUnVJejV6a2dtQ3g3aUVyUTUyNlQK"
+    }
+  }
+}

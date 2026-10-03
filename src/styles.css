@@ -1,0 +1,523 @@
+:root {
+  /* Default palette and shared state authority. Pre-init fallback is YTDL Clean. */
+  --brand-primary: #2457A7;
+  --brand-hover: #1C468B;
+  --brand-pressed: #16386E;
+  --brand-on-primary: #FFFFFF;
+  --brand-soft: #E8EFFA;
+  --brand-foreground: #16386E;
+  --brand-focus: var(--brand-primary);
+  --neutral-canvas: #E2E8F1;
+  --neutral-surface: #F6F8FC;
+  --neutral-surface-subtle: #E6ECF5;
+  --neutral-text-primary: #243047;
+  --neutral-text-secondary: #58667B;
+  --neutral-border: #CED7E5;
+  --neutral-border-strong: #718095;
+  --neutral-hover: #E6ECF5;
+  --semantic-success-bg: #EFFAF3;
+  --semantic-success-border: #B7DEC5;
+  --semantic-success-text: #166534;
+  --semantic-success-strong: #1F7A45;
+  --semantic-warning-bg: #FFF8E6;
+  --semantic-warning-border: #E5C76B;
+  --semantic-warning-text: #854D0E;
+  --semantic-warning-strong: #A15C00;
+  --semantic-danger-bg: #FFF1F2;
+  --semantic-danger-border: #EAB9BF;
+  --semantic-danger-text: #B4232C;
+  --semantic-danger-strong: #C93636;
+  --semantic-info-bg: #EFF6FF;
+  --semantic-info-border: #BDD3F0;
+  --semantic-info-text: #245493;
+  --semantic-info-strong: #2563B8;
+  --semantic-busy-bg: var(--semantic-info-bg);
+  --semantic-busy-border: var(--semantic-info-border);
+  --semantic-busy-text: var(--semantic-info-text);
+  --semantic-busy-strong: var(--semantic-info-strong);
+  --semantic-disabled-bg: #F2F3F5;
+  --semantic-disabled-border: #D7DBE1;
+  --semantic-disabled-text: #606A7A;
+  --color-bg: var(--neutral-canvas);
+  --color-surface: var(--neutral-surface);
+  --color-surface-subtle: var(--neutral-surface-subtle);
+  --color-border-strong: var(--neutral-border-strong);
+  --color-selected-bg: #DCE7F8;
+  --color-selected-text: var(--brand-foreground);
+  --color-secondary-border: var(--neutral-border-strong);
+  --color-secondary-pressed: var(--neutral-hover);
+
+  /* Font Smoothing for Windows */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  --color-text: var(--neutral-text-primary);
+  --color-text-muted: var(--neutral-text-secondary);
+  --color-primary: var(--brand-primary);
+  --color-on-primary: var(--brand-on-primary);
+  --color-on-primary-hover: var(--brand-on-primary);
+  --color-primary-hover: var(--brand-hover);
+  --color-primary-pressed: var(--brand-pressed);
+  --color-secondary: var(--neutral-surface);
+  --color-on-secondary: var(--neutral-text-primary);
+  --color-secondary-hover: var(--neutral-surface-subtle);
+  --color-accent: var(--brand-primary);
+  --color-border: var(--neutral-border);
+  --color-shadow: rgba(32, 33, 36, 0.12);
+  --color-error: var(--semantic-danger-text);
+  --color-on-error: var(--brand-on-primary);
+  --color-error-bg: var(--semantic-danger-bg);
+  --color-success: var(--semantic-success-text);
+  --color-warning: var(--semantic-warning-text);
+  --color-on-warning: var(--brand-on-primary);
+  --color-warning-bg: var(--semantic-warning-bg);
+  --color-warning-border: var(--semantic-warning-border);
+
+  /* Log Colors (Light Mode) */
+  --color-log-bg: #1e1e1e;
+  --color-log-text: #d4d4d4;
+  --color-log-error: #f87171;
+  --color-log-warn: #fbbf24;
+  --color-log-info: #8FC4FF;
+  --color-log-success: #4ade80;
+  --color-log-tag: #ADCBF4;
+  --color-log-string: #ce9178;
+  --color-log-number: #b5cea8;
+  --color-log-url: #4ec9b0;
+  --color-log-progress: #ADCBF4;
+
+  /* Spacing & Layout */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+
+  /* Borders & Radius */
+  --border-width: 1px;
+  --border-style: solid;
+  --radius-sm: 6px;
+  --radius-md: 11px;
+  --radius-lg: 15px;
+
+  /* Shadows */
+  --shadow-hard: none;
+  --shadow-hard-sm: none;
+
+  /* Breakpoints */
+  --breakpoint-xs: 375px;
+  --breakpoint-sm: 640px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1440px;
+
+  /* Fonts */
+  --font-body: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-heading: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-mono: 'Consolas', 'Monaco', 'Courier New', monospace;
+
+  /* Component States */
+  --color-bg-hover: var(--neutral-hover);
+  --color-bg-alt: var(--color-surface-subtle);
+  --color-media-canvas: #000000;
+}
+
+/* =========================================
+   YTDL Graphite (legacy ID cobalt-butter)
+   ========================================= */
+
+/* Internal data-theme id retained so existing saved preferences keep working. */
+[data-theme="cobalt-butter"] {
+  --brand-primary: #30363D;
+  --brand-hover: #242A31;
+  --brand-pressed: #181E25;
+  --brand-soft: #E9EEF4;
+  --neutral-canvas: #DDE1E5;
+  --neutral-surface: #F6F7F8;
+  --neutral-surface-subtle: #E8EBEE;
+  --neutral-text-primary: #262B32;
+  --neutral-text-secondary: #5B646F;
+  --neutral-border: #D2D8DE;
+  --neutral-border-strong: #7C8794;
+  --color-selected-bg: #DBE9F4;
+  --brand-foreground: var(--brand-pressed);
+  --neutral-hover: var(--neutral-surface-subtle);
+  --color-selected-text: #20587D;
+  --graphite-header-bg: #272B30;
+  --graphite-header-text: #F5F7FA;
+  --graphite-header-muted: #C4CED9;
+  --graphite-header-control: #424B55;
+  --graphite-header-focus: #AED7F5;
+  --graphite-progress: #276B9A;
+  --color-bg: var(--neutral-canvas);
+  --color-surface: var(--neutral-surface);
+  --color-surface-subtle: var(--neutral-surface-subtle);
+  --color-text: var(--neutral-text-primary);
+  --color-text-muted: var(--neutral-text-secondary);
+  --color-border: var(--neutral-border);
+  --color-border-strong: var(--neutral-border-strong);
+
+  --border-width: 1px;
+  --radius-sm: 6px;
+  --radius-md: 11px;
+  --radius-lg: 15px;
+  --shadow-hard: none;
+  --shadow-hard-sm: none;
+}
+
+[data-theme="cobalt-butter"] body {
+  background-image: none;
+}
+
+[data-theme="cobalt-butter"] .neo-button.primary {
+  box-shadow: none;
+}
+
+[data-theme="cobalt-butter"] .neo-button.primary:hover:not(:disabled) {
+  box-shadow: none;
+}
+
+[data-theme="cobalt-butter"] .download-list-container .download-card.completed{
+  border-color: var(--color-border);
+}
+
+[data-theme="cobalt-butter"] ::selection{
+  background: var(--color-secondary);
+  color: var(--color-on-secondary);
+}
+
+[data-theme="cobalt-butter"] input,
+[data-theme="cobalt-butter"] textarea{
+  caret-color: var(--color-primary);
+}
+
+[data-theme="cobalt-butter"] ::-webkit-scrollbar-thumb{
+  background: var(--color-secondary);
+  border: 2px solid var(--color-border);
+  border-radius: 2px;
+}
+
+/* =========================================
+   Base Styles (Restored)
+   ========================================= */
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  transition: background-color 0.3s ease, color 0.3s ease;
+  overflow-x: hidden;
+  line-height: 1.5;
+}
+
+.download-queue {
+  min-width: 0;
+}
+
+@media (max-width: 768px) {
+  .download-queue {
+    gap: var(--spacing-md);
+  }
+}
+
+/* Typography */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-heading);
+  margin: 0 0 var(--spacing-md) 0;
+  font-weight: 700;
+}
+
+/* Neo Components Base */
+.neo-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-hard);
+  font-family: var(--font-heading);
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.1s ease, box-shadow 0.1s ease, background-color 0.2s;
+  gap: var(--spacing-sm);
+  user-select: none;
+}
+
+.neo-button:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: calc(var(--shadow-hard-sm) + 2px 2px 0 0 var(--color-border));
+}
+
+.neo-button:active {
+  transform: translate(2px, 2px);
+  box-shadow: none;
+}
+
+.neo-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: var(--shadow-hard-sm);
+}
+
+.neo-button.primary {
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+  border-color: var(--color-border);
+  box-shadow: 4px 4px 0 0 var(--color-shadow);
+  transition: transform 0.1s ease, box-shadow 0.1s ease, background-color 0.2s;
+}
+
+.neo-button.primary:hover:not(:disabled) {
+  background-color: var(--color-primary-hover);
+  color: var(--color-on-primary-hover);
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0 0 var(--color-shadow);
+}
+
+.neo-button.primary:active {
+  background-color: var(--color-primary-hover);
+  color: var(--color-on-primary-hover);
+  transform: translate(2px, 2px);
+  box-shadow: none;
+}
+
+.neo-button.primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: var(--shadow-hard-sm);
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.neo-button.secondary {
+  background-color: var(--color-secondary);
+  color: var(--color-on-secondary);
+  border-color: var(--color-secondary-border);
+}
+
+.neo-button.secondary:hover {
+  background-color: var(--color-secondary-hover);
+}
+
+.neo-button.secondary:active:not(:disabled) {
+  background-color: var(--color-secondary-pressed);
+}
+
+.neo-button.small {
+  min-height: 44px;
+  padding: 6px 10px;
+  font-size: 0.9rem;
+}
+
+.neo-button.icon-only.small {
+  width: 44px;
+  min-width: 44px;
+  padding: 0;
+}
+
+.neo-button.micro {
+  min-height: 44px;
+  padding: 6px 10px;
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+.neo-button.icon-only.micro {
+  width: 44px;
+  min-width: 44px;
+  padding: 6px;
+}
+
+.neo-button.danger {
+  color: var(--color-error);
+  border-color: var(--color-error);
+}
+
+.neo-button.success {
+  color: var(--color-success);
+  border-color: var(--color-success);
+}
+
+.neo-button.ghost {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+.neo-button.ghost:hover {
+  background-color: var(--color-bg-hover);
+  border-color: var(--color-border);
+}
+
+.neo-button.ghost.active {
+  background-color: var(--color-text);
+  color: var(--color-bg);
+}
+
+/* Inputs */
+.neo-input,
+.neo-textarea,
+.neo-select {
+  width: 100%;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-hard-sm);
+  font-family: var(--font-body);
+  font-size: 1rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  /* Fix for URL wrapping */
+  word-break: break-all;
+}
+
+.neo-input:focus,
+.neo-textarea:focus,
+.neo-select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-hard);
+}
+
+.neo-input::placeholder,
+.neo-textarea::placeholder {
+  color: var(--color-text-muted);
+  opacity: 1;
+}
+
+/* Containers */
+.neo-box {
+  background-color: var(--color-surface);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-hard);
+  padding: var(--spacing-md);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-bg);
+}
+
+/* =========================================
+   Accessibility: Focus Styles
+   ========================================= */
+
+/* Global focus-visible for keyboard users */
+*:focus-visible {
+  outline: 3px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Remove default focus outline for mouse users */
+*:focus {
+  outline: none;
+}
+
+/* Ensure focus is visible on all interactive elements */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 3px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Special focus for ghost buttons (need higher contrast) */
+.ui-ghost-button:focus-visible {
+  outline: 3px solid var(--color-primary);
+  outline-offset: 2px;
+  background-color: var(--color-surface);
+}
+
+/* Focus for dropdown items */
+.dropdown-item:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+  background-color: var(--color-bg-hover);
+}
+
+/* Focus for link chips */
+.link-chip:focus-within {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Scrollbar */
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border: 2px solid var(--color-bg);
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
+}
+
+/* Shared header control breathing: Theme + Settings */
+.header-actions .header-control {
+  box-shadow: var(--shadow-hard-sm);
+  transition: transform 140ms cubic-bezier(0.23, 1, 0.32, 1), box-shadow 140ms ease, background-color 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+.header-actions .header-control:hover:not(:disabled) {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 0 var(--color-shadow);
+}
+
+.header-actions .header-control:active:not(:disabled),
+.header-actions .header-control.is-open,
+.header-actions .header-control.is-open:hover,
+.header-actions .header-control.active,
+.header-actions .header-control.active:hover {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 0 var(--color-shadow);
+}
+
+/* =========================================
+   Accessibility: Reduced Motion
+   Respect user preferences for reduced motion
+   ========================================= */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto !important;
+  }
+  .btn-rebound:active,
+  .download-card:hover,
+  .neo-button:hover,
+  .header-actions .header-control:hover,
+  .header-actions .header-control:active,
+  .header-actions .header-control.is-open,
+  .header-actions .header-control.active {
+    transform: none !important;
+  }
+
+  .header-actions .header-control {
+    transition: none !important;
+  }
+}

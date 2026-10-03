@@ -1,0 +1,594 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>YTDL-Flow Settings IA Prototype</title>
+  <link rel="stylesheet" href="/src/styles.css" />
+  <style>
+    :root { color-scheme: light; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--color-bg);
+      color: var(--color-text);
+      font-family: var(--font-body);
+    }
+    button, input, select { font: inherit; }
+    .prototype-shell {
+      width: min(1040px, calc(100vw - 40px));
+      margin: 32px auto 96px;
+    }
+    .prototype-note {
+      margin-bottom: 14px;
+      font: 700 12px/1.4 var(--font-mono);
+      color: var(--color-text-muted);
+    }
+    .settings-window {
+      min-height: 700px;
+      background: var(--color-surface);
+      border: 3px solid var(--color-border);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-hard);
+      overflow: hidden;
+    }
+    .settings-head {
+      height: 64px;
+      padding: 0 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 2px solid var(--color-border);
+      background: color-mix(in srgb, var(--color-primary) 5%, var(--color-surface));
+    }
+    .settings-title {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+    }
+    .settings-title strong { font-size: 1.1rem; }
+    .settings-title span { color: var(--color-text-muted); font-size: .82rem; }
+    .icon-button {
+      width: 40px;
+      height: 40px;
+      border: 2px solid var(--color-border);
+      background: var(--color-surface);
+      box-shadow: 2px 2px 0 var(--color-shadow);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+    }
+    .tabbar {
+      display: flex;
+      border-bottom: 1px solid var(--color-border);
+      background: var(--color-bg-alt);
+    }
+    .tabbar button {
+      min-height: 48px;
+      padding: 0 18px;
+      border: 0;
+      border-right: 1px solid color-mix(in srgb, var(--color-border) 22%, transparent);
+      background: transparent;
+      color: var(--color-text-muted);
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .tabbar button.active {
+      background: var(--color-surface);
+      color: var(--color-text);
+      box-shadow: inset 0 -3px 0 var(--color-primary);
+    }
+    .settings-content { padding: 22px; }
+    .section {
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      background: var(--color-surface);
+      overflow: hidden;
+      margin-bottom: 14px;
+    }
+    .section-head {
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      border-bottom: 1px solid color-mix(in srgb, var(--color-border) 24%, transparent);
+      background: color-mix(in srgb, var(--color-primary) 4%, var(--color-surface));
+    }
+    .section-head h3 {
+      margin: 0;
+      font-size: .95rem;
+    }
+    .section-head p {
+      margin: 3px 0 0;
+      color: var(--color-text-muted);
+      font-size: .78rem;
+    }
+    .row {
+      min-height: 54px;
+      padding: 10px 14px;
+      display: grid;
+      grid-template-columns: minmax(180px, 1fr) minmax(200px, 1.35fr);
+      align-items: center;
+      gap: 16px;
+      border-bottom: 1px solid color-mix(in srgb, var(--color-border) 14%, transparent);
+    }
+    .row:last-child { border-bottom: 0; }
+    .row-label strong { display: block; font-size: .88rem; }
+    .row-label span { display: block; margin-top: 2px; color: var(--color-text-muted); font-size: .76rem; }
+    .row-control { min-width: 0; display: flex; gap: 8px; align-items: center; justify-content: flex-end; }
+    .row-control.start { justify-content: flex-start; }
+    .compact-input, .compact-select {
+      min-height: 38px;
+      width: min(100%, 320px);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      background: var(--color-bg-alt);
+      color: var(--color-text);
+      padding: 0 10px;
+    }
+    .mini-button {
+      min-height: 38px;
+      padding: 0 12px;
+      border: 1px solid var(--color-border);
+      background: var(--color-surface);
+      border-radius: var(--radius-sm);
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .mini-button.primary {
+      background: var(--color-primary);
+      color: var(--color-on-primary);
+      border-color: var(--color-border);
+    }
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 8px;
+      border-radius: 999px;
+      border: 1px solid color-mix(in srgb, var(--color-success) 40%, var(--color-border));
+      background: color-mix(in srgb, var(--color-success) 10%, var(--color-surface));
+      font-size: .76rem;
+      font-weight: 700;
+    }
+    .switch {
+      width: 40px;
+      height: 22px;
+      padding: 2px;
+      border: 1px solid var(--color-border);
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--color-primary) 18%, var(--color-surface));
+      display: inline-flex;
+      justify-content: flex-end;
+    }
+    .switch::after {
+      content: "";
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--color-primary);
+    }
+    .pill-row { display: flex; flex-wrap: wrap; gap: 6px; }
+    .pill {
+      padding: 5px 8px;
+      border: 1px solid var(--color-border);
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--color-primary) 7%, var(--color-surface));
+      font: 700 11px/1 var(--font-mono);
+    }
+    .preview {
+      padding: 8px 10px;
+      border: 1px dashed var(--color-border);
+      border-radius: var(--radius-sm);
+      background: var(--color-bg-alt);
+      font: 12px/1.4 var(--font-mono);
+      overflow-wrap: anywhere;
+    }
+    .two-col {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+    .three-col {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .tool-row {
+      display: grid;
+      grid-template-columns: minmax(120px, .7fr) minmax(140px, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      padding: 11px 14px;
+      border-bottom: 1px solid color-mix(in srgb, var(--color-border) 14%, transparent);
+    }
+    .tool-row:last-child { border-bottom: 0; }
+    .tool-version { color: var(--color-text-muted); font: 12px/1.4 var(--font-mono); }
+
+    /* Variant B */
+    .settings-grid {
+      display: grid;
+      grid-template-columns: 220px minmax(0, 1fr);
+      min-height: 636px;
+    }
+    .settings-rail {
+      padding: 14px;
+      border-right: 1px solid var(--color-border);
+      background: var(--color-bg-alt);
+    }
+    .rail-section {
+      margin: 10px 8px 6px;
+      color: var(--color-text-muted);
+      font: 700 10px/1 var(--font-mono);
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+    .rail-button {
+      width: 100%;
+      min-height: 42px;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 0 10px;
+      border: 1px solid transparent;
+      border-radius: var(--radius-sm);
+      background: transparent;
+      color: var(--color-text-muted);
+      font-weight: 700;
+      text-align: left;
+      cursor: pointer;
+    }
+    .rail-button.active {
+      color: var(--color-text);
+      background: color-mix(in srgb, var(--color-primary) 10%, var(--color-surface));
+      border-color: var(--color-primary);
+    }
+    .detail-head {
+      padding: 22px 22px 8px;
+    }
+    .detail-head h2 { margin: 0; font-size: 1.15rem; }
+    .detail-head p { margin: 5px 0 0; color: var(--color-text-muted); font-size: .82rem; }
+
+    /* Variant C */
+    .overview {
+      padding: 18px 22px 0;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .overview-card {
+      padding: 12px;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      background: var(--color-bg-alt);
+    }
+    .overview-card span { display: block; color: var(--color-text-muted); font-size: .72rem; }
+    .overview-card strong { display: block; margin-top: 4px; font-size: .88rem; }
+    .accordion-list { padding: 14px 22px 22px; }
+    details.accordion {
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      background: var(--color-surface);
+      margin-bottom: 10px;
+      overflow: clip;
+    }
+    details.accordion > summary {
+      list-style: none;
+      min-height: 58px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 0 14px;
+      cursor: pointer;
+      font-weight: 800;
+      background: color-mix(in srgb, var(--color-primary) 4%, var(--color-surface));
+    }
+    details.accordion > summary::-webkit-details-marker { display: none; }
+    .summary-meta { color: var(--color-text-muted); font-size: .75rem; font-weight: 500; }
+    .expert-callout {
+      margin: 0 14px 12px;
+      padding: 10px 12px;
+      border-left: 3px solid var(--color-warning);
+      background: color-mix(in srgb, var(--color-warning) 7%, var(--color-surface));
+      color: var(--color-text-muted);
+      font-size: .78rem;
+    }
+
+    .prototype-switcher {
+      position: fixed;
+      left: 50%;
+      bottom: 20px;
+      transform: translateX(-50%);
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px;
+      border: 2px solid #000;
+      border-radius: 999px;
+      background: #111;
+      color: #fff;
+      box-shadow: 4px 4px 0 rgba(0,0,0,.25);
+    }
+    .prototype-switcher button {
+      width: 34px;
+      height: 34px;
+      border: 1px solid #fff;
+      border-radius: 50%;
+      background: #222;
+      color: #fff;
+      cursor: pointer;
+    }
+    .prototype-switcher strong { min-width: 210px; text-align: center; font: 700 12px/1.2 ui-monospace, monospace; }
+
+    @media (max-width: 760px) {
+      .prototype-shell { width: calc(100vw - 20px); margin-top: 10px; }
+      .two-col, .three-col, .overview { grid-template-columns: 1fr; }
+      .row { grid-template-columns: 1fr; gap: 8px; }
+      .row-control { justify-content: flex-start; }
+      .settings-grid { grid-template-columns: 1fr; }
+      .settings-rail { display: flex; gap: 6px; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--color-border); }
+      .rail-section { display: none; }
+      .rail-button { min-width: max-content; width: auto; }
+    }
+  </style>
+</head>
+<body>
+<div class="prototype-shell">
+  <div class="prototype-note">THROWAWAY PROTOTYPE · Settings IA only · no persistence · no backend mutations</div>
+  <div id="prototype"></div>
+</div>
+<div class="prototype-switcher" aria-label="Prototype variants">
+  <button id="prev" aria-label="Previous variant">←</button>
+  <strong id="variant-label"></strong>
+  <button id="next" aria-label="Next variant">→</button>
+</div>
+<script>
+const variants = ['A','B','C'];
+const names = {
+  A: 'A · Four tabs / compact groups',
+  B: 'B · Desktop rail / category detail',
+  C: 'C · Task overview / progressive disclosure'
+};
+
+const row = (title, help, control) => `
+  <div class="row">
+    <div class="row-label"><strong>${title}</strong><span>${help}</span></div>
+    <div class="row-control">${control}</div>
+  </div>`;
+
+const toggle = '<span class="switch" aria-hidden="true"></span>';
+const select = (label='自动') => `<select class="compact-select"><option>${label}</option></select>`;
+const input = (value='') => `<input class="compact-input" value="${value}" />`;
+
+function commonHeader() {
+  return `<div class="settings-head">
+    <div class="settings-title"><strong>设置</strong><span>YTDL-Flow 桌面设置</span></div>
+    <button class="icon-button" aria-label="关闭">×</button>
+  </div>`;
+}
+
+function generalSections() {
+  return `
+    <section class="section">
+      <div class="section-head"><div><h3>账号与登录</h3><p>仅在网站需要登录态或年龄/地区验证时使用</p></div></div>
+      ${row('Bilibili', '扫码登录，凭证仅保存在本机', '<span class="status">● 已连接</span><button class="mini-button">管理</button>')}
+      ${row('YouTube', '从浏览器或 cookies.txt 读取登录态', '<span class="status">● Edge</span><button class="mini-button">管理</button>')}
+    </section>
+    <section class="section">
+      <div class="section-head"><div><h3>通知</h3><p>控制下载任务的系统通知</p></div>${toggle}</div>
+      ${row('任务完成', '下载成功后通知', toggle)}
+      ${row('任务失败', '需要手动处理时通知', toggle)}
+      ${row('任务取消', '取消任务时通知', '<span class="switch" style="justify-content:flex-start"><span></span></span>')}
+    </section>`;
+}
+
+function outputSections() {
+  return `
+    <section class="section">
+      <div class="section-head"><div><h3>文件命名</h3><p>控制下载后的默认文件名</p></div>${toggle}</div>
+      <div class="row">
+        <div class="row-label"><strong>组成字段</strong><span>常用字段直接点选，高级模板保持次级</span></div>
+        <div class="row-control start"><div class="pill-row"><span class="pill">标题</span><span class="pill">作者</span><span class="pill">平台</span><span class="pill">日期</span><span class="pill">字幕语言</span></div></div>
+      </div>
+      <div class="row">
+        <div class="row-label"><strong>预览</strong><span>最终扩展名由真实下载结果决定</span></div>
+        <div class="row-control"><div class="preview">视频标题 - 作者.mp4</div></div>
+      </div>
+      ${row('高级模板', '仅在需要 yt-dlp 模板变量时编辑', '<button class="mini-button">展开模板编辑</button>')}
+    </section>
+    <section class="section">
+      <div class="section-head"><div><h3>画质与编码</h3><p>默认选择偏好，不改变单任务格式菜单的语义</p></div></div>
+      <div class="row">
+        <div class="row-label"><strong>视频输出偏好</strong><span>分辨率、视频编码与音频编码</span></div>
+        <div class="row-control"><div class="three-col" style="width:100%">${select('最佳画质')}${select('视频：自动')}${select('音频：自动')}</div></div>
+      </div>
+    </section>
+    <section class="section">
+      <div class="section-head"><div><h3>后处理</h3><p>下载完成后对媒体内容执行的处理</p></div></div>
+      ${row('嵌入字幕', '支持中文、英语等常用字幕语言', toggle)}
+      <div class="row">
+        <div class="row-label"><strong>字幕语言</strong><span>仅在嵌入字幕时使用；当前支持常用语言快捷选择</span></div>
+        <div class="row-control start"><div class="pill-row"><span class="pill">中文（简体）</span><span class="pill">English</span></div></div>
+      </div>
+      ${row('SponsorBlock', '移除平台标记的赞助片段', toggle)}
+    </section>
+    <section class="section">
+      <div class="section-head"><div><h3>元数据与归档</h3><p>为本地媒体库保存附加信息</p></div></div>
+      ${row('嵌入媒体元数据', '写入标题、章节等媒体标签', toggle)}
+      ${row('保存独立封面', '视频旁生成同名 JPG', toggle)}
+      ${row('导出 info.json', '保存完整 yt-dlp 元数据', toggle)}
+    </section>`;
+}
+
+function advancedSections() {
+  return `
+    <section class="section">
+      <div class="section-head"><div><h3>下载性能</h3><p>通常保持推荐值即可</p></div></div>
+      ${row('并发分片', '推荐 3–5；过高可能触发服务端限制', '<input type="range" min="1" max="16" value="4" style="width:min(100%,320px)"><strong>4</strong>')}
+    </section>
+    <section class="section">
+      <div class="section-head"><div><h3>网络与兼容性</h3><p>仅在解析失败、区域限制或平台反爬时调整</p></div></div>
+      ${row('代理', '支持 HTTP / SOCKS5；留空则直连', input(''))}
+      ${row('User-Agent', '默认自动；特殊站点才需要修改', select('自动'))}
+      ${row('YouTube Client', '优先使用 Smart；由应用选择兼容客户端', select('Smart（推荐）'))}
+      <div class="row">
+        <div class="row-label"><strong>YouTube 专家参数</strong><span>仅特定 Client 需要；折叠不会清空已保存值</span></div>
+        <div class="row-control start" style="display:block">
+          <details class="inline-disclosure">
+            <summary class="mini-button">展开 PO Token / Visitor Data</summary>
+            <div style="display:grid;gap:10px;margin-top:10px;width:min(100%,520px)">
+              <label class="row-label"><strong>PO Token <span style="color:var(--color-warning)">可选</span></strong>${input('')}</label>
+              <label class="row-label"><strong>Visitor Data（可选）</strong>${input('')}</label>
+            </div>
+          </details>
+        </div>
+      </div>
+    </section>`;
+}
+
+function toolsSections() {
+  return `
+    <section class="section">
+      <div class="section-head"><div><h3>YTDL-Flow 更新</h3><p>应用自身版本</p></div></div>
+      <div class="tool-row"><strong>YTDL-Flow</strong><span class="tool-version">2.0.1</span><button class="mini-button primary">检查更新</button></div>
+    </section>
+    <section class="section">
+      <div class="section-head"><div><h3>下载工具链</h3><p>版本信息和维护动作集中在同一处</p></div><button class="mini-button">复制信息</button></div>
+      <div class="tool-row"><strong>yt-dlp</strong><span class="tool-version">2026.09.28</span><button class="mini-button">更新</button></div>
+      <div class="tool-row"><strong>FFmpeg</strong><span class="tool-version">7.1</span><button class="mini-button">重装</button></div>
+      <div class="tool-row"><strong>Bun</strong><span class="tool-version">1.4.2</span><button class="mini-button">更新</button></div>
+    </section>
+    <section class="section">
+      <div class="section-head"><div><h3>系统健康</h3><p>诊断下载进程是否正确退出</p></div></div>
+      ${row('后台进程', '当前未发现残留 yt-dlp / FFmpeg 进程', '<span class="status">● 正常</span><button class="mini-button">重新检查</button>')}
+    </section>`;
+}
+
+function variantA() {
+  const params = new URLSearchParams(location.search);
+  const tab = params.get('tab') || 'general';
+  const tabs = [
+    ['general', '常规'],
+    ['output', '输出'],
+    ['advanced', '高级'],
+    ['tools', '工具'],
+  ];
+  const body =
+    tab === 'output' ? outputSections() :
+    tab === 'advanced' ? advancedSections() :
+    tab === 'tools' ? toolsSections() :
+    generalSections();
+
+  return `<div class="settings-window">
+    ${commonHeader()}
+    <div class="tabbar" role="tablist" aria-label="设置分类">
+      ${tabs.map(([key,label]) => `<button role="tab" data-settings-tab="${key}" aria-selected="${tab === key}" class="${tab === key ? 'active' : ''}">${label}</button>`).join('')}
+    </div>
+    <div class="settings-content" role="tabpanel">${body}</div>
+  </div>`;
+}
+
+function variantB() {
+  return `<div class="settings-window">
+    ${commonHeader()}
+    <div class="settings-grid">
+      <aside class="settings-rail">
+        <div class="rail-section">基础</div>
+        <button class="rail-button active">◎ 账号与登录</button>
+        <button class="rail-button">◌ 通知</button>
+        <div class="rail-section">媒体</div>
+        <button class="rail-button">▣ 输出默认值</button>
+        <div class="rail-section">专家</div>
+        <button class="rail-button">⌁ 网络与兼容性</button>
+        <button class="rail-button">↻ 更新与工具</button>
+        <button class="rail-button">✓ 系统健康</button>
+      </aside>
+      <main>
+        <div class="detail-head"><h2>账号与登录</h2><p>管理需要身份验证的平台。大多数公开下载无需登录。</p></div>
+        <div class="settings-content" style="padding-top:10px">
+          ${generalSections().split('</section>')[0]}</section>
+          <section class="section">
+            <div class="section-head"><div><h3>快速说明</h3><p>登录只在需要时启用，不影响普通公开链接</p></div></div>
+            ${row('安全范围', 'Cookies、Token 与登录态均保留在本机', '<span class="status">本地保存</span>')}
+          </section>
+        </div>
+      </main>
+    </div>
+  </div>`;
+}
+
+function variantC() {
+  return `<div class="settings-window">
+    ${commonHeader()}
+    <div class="overview">
+      <div class="overview-card"><span>账号</span><strong>2 个已连接</strong></div>
+      <div class="overview-card"><span>输出</span><strong>最佳画质 · 自动编码</strong></div>
+      <div class="overview-card"><span>兼容性</span><strong>Smart · 直连</strong></div>
+      <div class="overview-card"><span>工具链</span><strong>全部正常</strong></div>
+    </div>
+    <div class="accordion-list">
+      <details class="accordion" open>
+        <summary><span>常规</span><span class="summary-meta">账号、通知</span></summary>
+        ${generalSections()}
+      </details>
+      <details class="accordion">
+        <summary><span>输出</span><span class="summary-meta">命名、画质、字幕、归档</span></summary>
+        ${outputSections()}
+      </details>
+      <details class="accordion">
+        <summary><span>高级</span><span class="summary-meta">性能、网络与兼容性</span></summary>
+        <div class="expert-callout">这里的设置只用于异常站点或性能调优。默认值已经适合绝大多数下载。</div>
+        ${advancedSections()}
+      </details>
+      <details class="accordion">
+        <summary><span>工具</span><span class="summary-meta">更新、工具链、系统健康</span></summary>
+        ${toolsSections()}
+      </details>
+    </div>
+  </div>`;
+}
+
+function render() {
+  const params = new URLSearchParams(location.search);
+  let current = (params.get('variant') || 'A').toUpperCase();
+  if (!variants.includes(current)) current = 'A';
+  document.getElementById('prototype').innerHTML = current === 'A' ? variantA() : current === 'B' ? variantB() : variantC();
+  document.getElementById('variant-label').textContent = names[current];
+  window.__YTDL_SETTINGS_PROTOTYPE__ = { done: true, passed: 1, total: 1, failures: [], scenarios: [names[current]] };
+}
+
+function cycle(delta) {
+  const params = new URLSearchParams(location.search);
+  let current = (params.get('variant') || 'A').toUpperCase();
+  let index = variants.indexOf(current);
+  if (index < 0) index = 0;
+  const next = variants[(index + delta + variants.length) % variants.length];
+  params.set('variant', next);
+  history.replaceState(null, '', '?' + params.toString());
+  render();
+}
+
+document.getElementById('prev').addEventListener('click', () => cycle(-1));
+document.getElementById('next').addEventListener('click', () => cycle(1));
+document.getElementById('prototype').addEventListener('click', (event) => {
+  const tab = event.target.closest?.('[data-settings-tab]');
+  if (!tab) return;
+  const params = new URLSearchParams(location.search);
+  params.set('variant', 'A');
+  params.set('tab', tab.dataset.settingsTab);
+  history.replaceState(null, '', '?' + params.toString());
+  render();
+});
+document.addEventListener('keydown', (event) => {
+  const target = event.target;
+  if (target && (target.matches?.('input, textarea, select, [contenteditable="true"]'))) return;
+  if (event.key === 'ArrowLeft') cycle(-1);
+  if (event.key === 'ArrowRight') cycle(1);
+});
+render();
+</script>
+</body>
+</html>
