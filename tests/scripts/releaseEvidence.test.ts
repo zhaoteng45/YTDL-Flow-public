@@ -2,9 +2,14 @@ import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { writeLicenseManifest, verifyLicenseBundle, assertReleaseEvidence } from '../../scripts/lib/release-evidence.mjs';
+import { writeLicenseManifest, verifyLicenseBundle, assertReleaseEvidence, pendingRuntimeReviews } from '../../scripts/lib/release-evidence.mjs';
 
 describe('final installer release evidence', () => {
+  it('requires a current review for every bundled runtime', () => {
+    const tools = { bun: { version: '1.4.2' }, ffmpeg: { version: '9.0.2' } };
+    expect(pendingRuntimeReviews(tools, { tools: { bun: { version: '1.4.2', complete: true } } }).map(item => item.name)).toEqual(['ffmpeg']);
+    expect(pendingRuntimeReviews(tools, { tools: { bun: { version: '1.4.1', complete: true }, ffmpeg: { version: '9.0.2', complete: true } } }).map(item => item.name)).toEqual(['bun']);
+  });
   it('rejects a license removed or changed after inventory generation', () => {
     const root = mkdtempSync(join(tmpdir(), 'ytdl-license-test-'));
     mkdirSync(join(root, 'npm'));

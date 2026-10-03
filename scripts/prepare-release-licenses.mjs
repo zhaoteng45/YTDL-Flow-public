@@ -3,7 +3,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { execFileSync } from 'node:child_process';
 import { collectNpmLicenses } from './lib/npm-license-collection.mjs';
-import { fileSha256, writeLicenseManifest } from './lib/release-evidence.mjs';
+import { fileSha256, writeLicenseManifest, pendingRuntimeReviews } from './lib/release-evidence.mjs';
 
 const root = process.cwd();
 const output = path.join(root, 'src-tauri/licenses');
@@ -74,8 +74,7 @@ for (const flag of ['-L', '-buildconf']) {
   fs.writeFileSync(path.join(output, flag === '-L' ? 'ffmpeg-license.txt' : 'ffmpeg-buildconf.txt'), text);
 }
 const review = JSON.parse(fs.readFileSync('third-party/runtime-source-review.json', 'utf8'));
-const pending = Object.entries(tools).filter(([name, item]) => review.tools[name]?.version !== item.version || review.tools[name]?.complete !== true)
-  .map(([name, item]) => ({ name, version: item.version, pending: review.tools[name]?.pending ?? 'Missing or outdated review; recheck corresponding sources' }));
+const pending = pendingRuntimeReviews(tools, review);
 fs.writeFileSync(path.join(output, 'runtime-source-review.json'), JSON.stringify({ ...review, pending }, null, 2));
 const manifest = writeLicenseManifest(output, {
   version: JSON.parse(fs.readFileSync('package.json', 'utf8')).version,

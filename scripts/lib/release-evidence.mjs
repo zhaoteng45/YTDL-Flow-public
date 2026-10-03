@@ -4,6 +4,10 @@ import { createHash } from 'node:crypto';
 
 export const fileSha256 = (file) => createHash('sha256').update(fs.readFileSync(file)).digest('hex');
 
+export const pendingRuntimeReviews = (tools, review) => Object.entries(tools)
+  .filter(([name, item]) => review.tools?.[name]?.version !== item.version || review.tools?.[name]?.complete !== true)
+  .map(([name, item]) => ({ name, version: item.version, pending: review.tools?.[name]?.pending ?? 'Missing or outdated review; recheck corresponding sources' }));
+
 function filesIn(root, relative = '') {
   return fs.readdirSync(path.join(root, relative), { withFileTypes: true }).flatMap((entry) => {
     const name = path.posix.join(relative, entry.name);
