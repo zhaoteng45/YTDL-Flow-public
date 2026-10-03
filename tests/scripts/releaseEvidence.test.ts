@@ -20,10 +20,18 @@ describe('final installer release evidence', () => {
       install: { status: 'passed', msiSha256: 'c'.repeat(64), nativeSmoke: 'passed', licenses: 'passed', upgrade: 'passed' },
       signature: { status: 'passed', msiSha256: 'a'.repeat(64), updaterVerified: true, authenticodeVerified: true },
       licenses: { version: '3.1.1', sourceCommit: 'b'.repeat(40), runtimeReviewComplete: true },
+      fresh: { status: 'passed', msiSha256: 'a'.repeat(64), nativeSmoke: 'passed', licenses: 'passed' },
+      native: ['fresh', 'upgrade'].map(phase => ({ phase, status: 'passed', msiSha256: 'a'.repeat(64), productVersion: '3.1.1' })),
     };
     expect(() => assertReleaseEvidence(evidence)).toThrow(/different installer/);
     evidence.install.msiSha256 = evidence.installerSha256;
     expect(() => assertReleaseEvidence(evidence)).not.toThrow();
+    evidence.native[0].msiSha256 = 'd'.repeat(64);
+    expect(() => assertReleaseEvidence(evidence)).toThrow(/native.*installer/i);
+    evidence.native[0].msiSha256 = evidence.installerSha256;
+    evidence.native[1].phase = 'fresh';
+    expect(() => assertReleaseEvidence(evidence)).toThrow(/native.*phase/i);
+    evidence.native[1].phase = 'upgrade';
     evidence.signature.updaterVerified = false;
     expect(() => assertReleaseEvidence(evidence)).toThrow(/signature/);
     evidence.signature.updaterVerified = true;

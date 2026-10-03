@@ -55,9 +55,12 @@ const downloads = [
   ['yt-dlp-LICENSE', 'https://raw.githubusercontent.com/yt-dlp/yt-dlp/3a08beaf031ab68f966401ead017ac81fe8486cf/LICENSE'],
   ['yt-dlp-THIRD_PARTY_LICENSES.txt', 'https://raw.githubusercontent.com/yt-dlp/yt-dlp/3a08beaf031ab68f966401ead017ac81fe8486cf/THIRD_PARTY_LICENSES.txt'],
   ['bun-LICENSE.md', 'https://raw.githubusercontent.com/oven-sh/bun/744846f844374847c902b5e7fd59b4342a51ef99/LICENSE.md'],
-  ['GPL-3.0.txt', 'https://www.gnu.org/licenses/gpl-3.0.txt'],
 ];
 const sources = [];
+const gpl = 'third-party/GPL-3.0.txt';
+if (fileSha256(gpl) !== '3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986') throw new Error('GPL license checksum mismatch');
+copy(gpl, 'GPL-3.0.txt');
+sources.push({ file: 'GPL-3.0.txt', url: 'https://www.gnu.org/licenses/gpl-3.0.txt', sha256: fileSha256(gpl) });
 for (const [name, url] of downloads) {
   const response = await fetch(url);
   if (!response.ok) throw new Error(`License download failed: ${name}, HTTP ${response.status}`);
@@ -71,8 +74,8 @@ for (const flag of ['-L', '-buildconf']) {
   fs.writeFileSync(path.join(output, flag === '-L' ? 'ffmpeg-license.txt' : 'ffmpeg-buildconf.txt'), text);
 }
 const review = JSON.parse(fs.readFileSync('third-party/runtime-source-review.json', 'utf8'));
-const pending = Object.entries(review.tools).filter(([name, item]) => item.version !== tools[name]?.version || item.complete !== true)
-  .map(([name, item]) => ({ name, version: tools[name]?.version, pending: item.pending ?? 'Version changed; recheck corresponding sources' }));
+const pending = Object.entries(tools).filter(([name, item]) => review.tools[name]?.version !== item.version || review.tools[name]?.complete !== true)
+  .map(([name, item]) => ({ name, version: item.version, pending: review.tools[name]?.pending ?? 'Missing or outdated review; recheck corresponding sources' }));
 fs.writeFileSync(path.join(output, 'runtime-source-review.json'), JSON.stringify({ ...review, pending }, null, 2));
 const manifest = writeLicenseManifest(output, {
   version: JSON.parse(fs.readFileSync('package.json', 'utf8')).version,

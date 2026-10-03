@@ -1,7 +1,10 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)][string]$InstallLocation,
-    [Parameter(Mandatory)][string]$LogDirectory
+    [Parameter(Mandatory)][string]$LogDirectory,
+    [Parameter(Mandatory)][string]$MsiSha256,
+    [Parameter(Mandatory)][string]$ProductVersion,
+    [Parameter(Mandatory)][ValidateSet('fresh', 'upgrade')][string]$Phase
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -51,7 +54,10 @@ try {
     $reportFile = Join-Path $root 'native-smoke.json'
     if (-not (Test-Path -LiteralPath $reportFile -PathType Leaf)) { throw 'Installed app did not produce a smoke report' }
     $report = Get-Content -LiteralPath $reportFile -Raw | ConvertFrom-Json
-    Copy-Item -LiteralPath $reportFile -Destination (Join-Path $LogDirectory 'native-smoke.json')
+    $report | Add-Member -NotePropertyName msiSha256 -NotePropertyValue $MsiSha256.ToLowerInvariant()
+    $report | Add-Member -NotePropertyName productVersion -NotePropertyValue $ProductVersion
+    $report | Add-Member -NotePropertyName phase -NotePropertyValue $Phase
+    $report | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $LogDirectory "native-$Phase.json") -Encoding utf8
     if ($app.ExitCode -ne 0 -or $report.status -ne 'passed') { throw 'Installed app analysis/download smoke failed; see native-smoke.json' }
     Write-Output 'Installed application native analysis/download: PASS'
 } finally {

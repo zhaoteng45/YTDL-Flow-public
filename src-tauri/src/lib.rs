@@ -4,6 +4,8 @@ pub mod models;
 pub mod notification;
 mod release_smoke;
 mod release_smoke_input;
+#[cfg(windows)]
+mod release_smoke_job;
 pub mod services {
     pub mod capture;
     pub mod cookie_inspection;

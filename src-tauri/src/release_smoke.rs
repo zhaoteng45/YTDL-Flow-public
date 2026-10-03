@@ -16,6 +16,9 @@ struct Request {
 }
 
 async fn check(app: &AppHandle, request_file: &Path) -> Result<serde_json::Value, String> {
+    #[cfg(windows)]
+    crate::release_smoke_job::contain_current_process()
+        .map_err(|e| format!("Cannot contain smoke processes: {e}"))?;
     let request: Request =
         serde_json::from_slice(&std::fs::read(request_file).map_err(|e| e.to_string())?)
             .map_err(|e| e.to_string())?;

@@ -20,7 +20,8 @@ if (fresh.status !== 'passed' || fresh.msiSha256.toLowerCase() !== fileSha256(in
   throw new Error('Fresh-install evidence did not pass for this installer');
 }
 const evidence = assertReleaseEvidence({
-  installerSha256: fileSha256(installer), version, sourceCommit, install,
+  installerSha256: fileSha256(installer), version, sourceCommit, install, fresh,
+  native: [readReport('native-fresh.json'), readReport('native-upgrade.json')],
   signature: readReport('signature.json'), licenses: verifyLicenseBundle('src-tauri/licenses'),
 });
 const signature = fs.readFileSync(installer + '.sig', 'utf8').trim();

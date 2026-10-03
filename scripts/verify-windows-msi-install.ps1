@@ -523,7 +523,8 @@ try {
         if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Thumbprint -ne $ExpectedSignerThumbprint) { throw 'Installed application signature is invalid or belongs to another signer' }
     }
     if ($RunNativeSmoke) {
-        & (Join-Path $PSScriptRoot 'verify-installed-app.ps1') -InstallLocation $installLocation -LogDirectory $LogDirectory
+        $phase = if ($PreviousMsi) { 'upgrade' } else { 'fresh' }
+        & (Join-Path $PSScriptRoot 'verify-installed-app.ps1') -InstallLocation $installLocation -LogDirectory $LogDirectory -MsiSha256 $msiHash -ProductVersion $productVersion -Phase $phase
         $report.nativeSmoke = 'passed'
     }
 

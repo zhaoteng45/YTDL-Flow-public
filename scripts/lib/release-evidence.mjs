@@ -49,8 +49,22 @@ export function assertReleaseEvidence(evidence) {
   if (!/^[a-f0-9]{64}$/.test(evidence.installerSha256) || !/^[a-f0-9]{40}$/.test(evidence.sourceCommit)) {
     throw new Error('Invalid release identity');
   }
-  for (const report of [evidence.install, evidence.signature]) {
+  for (const report of [evidence.install, evidence.signature, evidence.fresh]) {
     if (report?.msiSha256 !== evidence.installerSha256) throw new Error('Evidence belongs to a different installer');
+  }
+  if (evidence.fresh.status !== 'passed' || evidence.fresh.nativeSmoke !== 'passed' || evidence.fresh.licenses !== 'passed') {
+    throw new Error('Fresh installation verification did not pass');
+  }
+  if (!Array.isArray(evidence.native) || evidence.native.length !== 2 ||
+      new Set(evidence.native.map(report => report.phase)).size !== 2 ||
+      !evidence.native.some(report => report.phase === 'fresh') || !evidence.native.some(report => report.phase === 'upgrade')) {
+    throw new Error('Native evidence phases are incomplete');
+  }
+  for (const report of evidence.native) {
+    if (report.msiSha256 !== evidence.installerSha256 || report.productVersion !== evidence.version) {
+      throw new Error('Native evidence belongs to a different installer');
+    }
+    if (report.status !== 'passed') throw new Error('Native verification did not pass');
   }
   if (evidence.install.status !== 'passed' || evidence.install.nativeSmoke !== 'passed' ||
       evidence.install.licenses !== 'passed' || evidence.install.upgrade !== 'passed') {
