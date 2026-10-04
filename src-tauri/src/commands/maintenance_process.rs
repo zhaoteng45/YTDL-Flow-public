@@ -187,7 +187,7 @@ mod tests {
         use std::os::windows::io::{AsRawHandle, FromRawHandle, OwnedHandle};
         use windows_sys::Win32::Foundation::WAIT_OBJECT_0;
         use windows_sys::Win32::System::Threading::{
-            OpenProcess, WaitForSingleObject, SYNCHRONIZE,
+            OpenProcess, WaitForSingleObject, PROCESS_SYNCHRONIZE,
         };
         let output = bounded_output(Command::new("powershell").args([
             "-NoProfile", "-NonInteractive", "-Command",
@@ -199,7 +199,7 @@ mod tests {
             .parse::<u32>()
             .unwrap();
         unsafe {
-            let raw = OpenProcess(SYNCHRONIZE, 0, pid);
+            let raw = OpenProcess(PROCESS_SYNCHRONIZE, 0, pid);
             if !raw.is_null() {
                 let process = OwnedHandle::from_raw_handle(raw);
                 assert_eq!(
