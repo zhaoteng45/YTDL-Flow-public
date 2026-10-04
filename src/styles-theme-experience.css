@@ -1698,7 +1698,7 @@
 }
 
 /* One status surface: the wrapper supplies structure, the state supplies tone. */
-:root:is([data-theme="cobalt-butter"], [data-theme="fluent"], [data-theme="material"]) .settings-modal-content {
+:root:is([data-theme="cobalt-butter"], [data-theme="fluent"], [data-theme="material"]) :is(.settings-modal-content, .settings-container) {
   --font-body: 'Segoe UI Variable Text', 'Segoe UI', 'Microsoft YaHei UI', 'Microsoft YaHei', system-ui, sans-serif;
   --font-heading: var(--font-body);
   font-family: var(--font-body);

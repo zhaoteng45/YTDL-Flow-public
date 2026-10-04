@@ -835,35 +835,49 @@ pub async fn inspect_tool_health(
 
 #[tauri::command]
 pub async fn kill_zombies(app: AppHandle, state: State<'_, DownloadState>) -> AppResult<usize> {
-    let _maintenance_guard = state
+    let maintenance_guard = state
         .begin_tool_mutation()
         .map_err(AppError::ExternalCommand)?;
 
-    #[cfg(target_os = "windows")]
-    {
-        use std::os::windows::process::CommandExt;
-        use std::process::Command;
+    tokio::task::spawn_blocking(move || {
+        let _maintenance_guard = maintenance_guard;
+        #[cfg(target_os = "windows")]
+        {
+            use std::os::windows::process::CommandExt;
+            use std::process::Command;
 
-        let mut killed_count = 0;
-        for pid in find_owned_tool_processes(&app)? {
-            let output = Command::new("taskkill")
-                .args(["/F", "/T", "/PID", &pid.to_string()])
-                .creation_flags(0x08000000)
-                .output()
+            let mut killed_count = 0;
+            for pid in find_owned_tool_processes(&app)? {
+                let mut command = Command::new("taskkill");
+                command
+                    .args(["/F", "/T", "/PID", &pid.to_string()])
+                    .creation_flags(0x08000000);
+                let output = maintenance_process::bounded_output(
+                    &mut command,
+                    maintenance_process::INSPECTION_TIMEOUT,
+                )
                 .map_err(|e| {
                     AppError::ExternalCommand(format!(
                         "Failed to kill owned media process {pid}: {e}"
                     ))
                 })?;
-            if output.status.success() {
-                killed_count += 1;
+                if output.status.success() {
+                    killed_count += 1;
+                } else {
+                    return Err(AppError::ExternalCommand(format!(
+                        "Failed to kill owned media process {pid}: {}",
+                        String::from_utf8_lossy(&output.stderr).trim()
+                    )));
+                }
             }
+            Ok(killed_count)
         }
-        Ok(killed_count)
-    }
 
-    #[cfg(not(target_os = "windows"))]
-    Ok(0)
+        #[cfg(not(target_os = "windows"))]
+        Ok(0)
+    })
+    .await
+    .map_err(|error| AppError::ExternalCommand(error.to_string()))?
 }
 
 #[cfg(all(test, windows))]
