@@ -1247,6 +1247,7 @@
 :root[data-theme="material"] .setting-group h4 { color: var(--color-text); font-size: 1rem; }
 :root:is([data-theme="cobalt-butter"], [data-theme="fluent"], [data-theme="material"]) .setting-group .helper-text { line-height: 1.55; }
 @container settings-frame (min-width: 900px) {
+  :root:is([data-theme="cobalt-butter"], [data-theme="fluent"], [data-theme="material"]) .settings-page-heading { max-width: none; }
   :root:is([data-theme="cobalt-butter"], [data-theme="fluent"], [data-theme="material"]) .tab-pane { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; max-width: none; width: 100%; align-items: start; }
   :root:is([data-theme="cobalt-butter"], [data-theme="fluent"], [data-theme="material"]) .setting-group { margin: 0; width: 100%; min-width: 0; }
   :root:is([data-theme="cobalt-butter"], [data-theme="fluent"], [data-theme="material"]) .expert-disclosure { grid-column: 1 / -1; }
@@ -1695,6 +1696,41 @@
   position: relative;
   min-width: 0;
 }
+
+/* One status surface: the wrapper supplies structure, the state supplies tone. */
+:root:is([data-theme="cobalt-butter"], [data-theme="fluent"], [data-theme="material"]) .settings-modal-content {
+  --font-body: 'Segoe UI Variable Text', 'Segoe UI', 'Microsoft YaHei UI', 'Microsoft YaHei', system-ui, sans-serif;
+  --font-heading: var(--font-body);
+  font-family: var(--font-body);
+}
+:root:is([data-theme="cobalt-butter"], [data-theme="fluent"], [data-theme="material"]) .tool-version-details {
+  margin: 12px 0;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--color-text-muted);
+}
+:root:is([data-theme="cobalt-butter"], [data-theme="fluent"], [data-theme="material"]) .tool-version-details summary { cursor: pointer; }
+:root:is([data-theme="cobalt-butter"], [data-theme="fluent"], [data-theme="material"]) .tool-version-details dl {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 6px 12px;
+}
+:root:is([data-theme="cobalt-butter"], [data-theme="fluent"], [data-theme="material"]) .tool-version-details dd { margin: 0; overflow-wrap: anywhere; }
+:root:is([data-theme="cobalt-butter"], [data-theme="fluent"], [data-theme="material"]) .zombie-check-area {
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+:root:is([data-theme="cobalt-butter"], [data-theme="fluent"], [data-theme="material"]) .zombie-check-area.has-zombies {
+  background: transparent;
+}
+:root:is([data-theme="cobalt-butter"], [data-theme="fluent"], [data-theme="material"]) .zombie-safe,
+:root:is([data-theme="cobalt-butter"], [data-theme="fluent"], [data-theme="material"]) .zombie-alert {
+  padding: 12px;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+:root:is([data-theme="cobalt-butter"], [data-theme="fluent"], [data-theme="material"]) .tool-status { font-variant-numeric: tabular-nums; }
 
 :root .cookie-path-preview[data-cookie-path]::after {
   content: attr(data-cookie-path);

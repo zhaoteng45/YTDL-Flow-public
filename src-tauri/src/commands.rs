@@ -35,6 +35,7 @@ pub mod bilibili;
 pub mod browsers;
 pub mod capture;
 pub mod dependencies;
+mod maintenance_process;
 pub mod system;
 pub mod updates;
 
@@ -731,19 +732,24 @@ fn owned_tool_directories(app: &AppHandle) -> Vec<PathBuf> {
 }
 
 #[cfg(target_os = "windows")]
+const OWNED_TOOL_PROCESS_SCRIPT: &str = r#"$ErrorActionPreference='Stop'; $names=@('yt-dlp.exe','yt-dlp-x86_64-pc-windows-msvc.exe','ffmpeg.exe'); Get-CimInstance Win32_Process | Where-Object { $names -contains $_.Name -and $_.ExecutablePath } | ForEach-Object { "$($_.ProcessId)|$($_.ExecutablePath)" }"#;
+
+#[cfg(target_os = "windows")]
 fn find_owned_tool_processes(app: &AppHandle) -> AppResult<Vec<u32>> {
     use std::os::windows::process::CommandExt;
     use std::process::Command;
 
     let owned_dirs = owned_tool_directories(app);
-    let script = r#"$names=@('yt-dlp.exe','yt-dlp-x86_64-pc-windows-msvc.exe','ffmpeg.exe'); Get-CimInstance Win32_Process | Where-Object { $names -contains $_.Name -and $_.ExecutablePath } | ForEach-Object { \"$($_.ProcessId)|$($_.ExecutablePath)\" }"#;
-    let output = Command::new("powershell")
+    let script = OWNED_TOOL_PROCESS_SCRIPT;
+    let mut command = Command::new("powershell");
+    command
         .args(["-NoProfile", "-NonInteractive", "-Command", script])
-        .creation_flags(0x08000000)
-        .output()
-        .map_err(|e| {
-            AppError::ExternalCommand(format!("Failed to inspect media processes: {e}"))
-        })?;
+        .creation_flags(0x08000000);
+    let output =
+        maintenance_process::bounded_output(&mut command, maintenance_process::INSPECTION_TIMEOUT)
+            .map_err(|e| {
+                AppError::ExternalCommand(format!("Failed to inspect media processes: {e}"))
+            })?;
 
     if !output.status.success() {
         return Err(AppError::ExternalCommand(format!(
@@ -814,13 +820,16 @@ pub async fn inspect_tool_health(
         .map_err(AppError::ExternalCommand)?
     {
         Err(active_operations) => Ok(ToolHealth::Busy { active_operations }),
-        Ok(_guard) => {
+        Ok(guard) => tokio::task::spawn_blocking(move || {
+            let _guard = guard;
             #[cfg(target_os = "windows")]
             let zombie_count = find_owned_tool_processes(&app)?.len();
             #[cfg(not(target_os = "windows"))]
             let zombie_count = 0;
             Ok(ToolHealth::Ready { zombie_count })
-        }
+        })
+        .await
+        .map_err(|error| AppError::ExternalCommand(error.to_string()))?,
     }
 }
 
@@ -855,4 +864,38 @@ pub async fn kill_zombies(app: AppHandle, state: State<'_, DownloadState>) -> Ap
 
     #[cfg(not(target_os = "windows"))]
     Ok(0)
+}
+
+#[cfg(all(test, windows))]
+mod tool_health_script_tests {
+    use super::maintenance_process::{bounded_output, INSPECTION_TIMEOUT};
+    use super::OWNED_TOOL_PROCESS_SCRIPT;
+    use std::os::windows::process::CommandExt;
+    use std::process::Command;
+    #[test]
+    fn health_scan_preserves_spaced_paths_and_fails_on_inspection_error() {
+        let fixture = "function Get-CimInstance { [pscustomobject]@{Name='ffmpeg.exe';ProcessId=42;ExecutablePath='C:\\Synthetic Folder\\ffmpeg.exe'} }; ";
+        let run = |fixture: &str| {
+            bounded_output(
+                Command::new("powershell").creation_flags(0x08000000).args([
+                    "-NoProfile",
+                    "-NonInteractive",
+                    "-Command",
+                    &format!("{fixture}{OWNED_TOOL_PROCESS_SCRIPT}"),
+                ]),
+                INSPECTION_TIMEOUT,
+            )
+            .unwrap()
+        };
+        let output = run(fixture);
+        assert!(output.status.success());
+        assert!(output.stderr.is_empty());
+        assert_eq!(
+            String::from_utf8_lossy(&output.stdout).trim(),
+            "42|C:\\Synthetic Folder\\ffmpeg.exe"
+        );
+        let failed =
+            run("function Get-CimInstance { Write-Error 'synthetic inspection failure' }; ");
+        assert!(!failed.status.success());
+    }
 }

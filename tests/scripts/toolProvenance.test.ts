@@ -63,7 +63,7 @@ describe('trusted tool provenance', () => {
     expect(releaseScript).not.toContain('latest/download/bun-windows-x64.zip');
   });
 
-  it('requires Bun and FFmpeg runtime downloads to verify before writing or replacing', () => {
+  it('requires Bun and FFmpeg streamed downloads to verify before extracting or replacing', () => {
     const updaterSource = readFileSync(resolve('src-tauri/src/commands/updates.rs'), 'utf8');
     const bunStart = updaterSource.indexOf('async fn update_bun_impl');
     const ffmpegStart = updaterSource.indexOf('pub async fn update_ffmpeg');
@@ -75,14 +75,17 @@ describe('trusted tool provenance', () => {
     expect(updaterSource).toContain('fetch_ffmpeg_windows_x64_sha256');
 
     for (const source of [bunSource, ffmpegSource]) {
-      const verifyIndex = source.indexOf('verify_sha256(&bytes, &expected_sha256)?');
-      const writeIndex = source.indexOf('fs::write(&zip_path, &bytes)');
+      const verifyIndex = source.indexOf('download_verified_archive(&client, url, &zip_path, &expected_sha256).await?');
+      const extractIndex = source.indexOf('expand_archive(&zip_path, &extract_dir)');
       const replaceIndex = source.indexOf('atomic_replace_files');
 
       expect(verifyIndex).toBeGreaterThanOrEqual(0);
-      expect(writeIndex).toBeGreaterThan(verifyIndex);
-      expect(replaceIndex).toBeGreaterThan(writeIndex);
+      expect(extractIndex).toBeGreaterThan(verifyIndex);
+      expect(replaceIndex).toBeGreaterThan(extractIndex);
     }
+    expect(updaterSource).toContain('while let Some(chunk) = response.chunk().await?');
+    expect(updaterSource).toContain('digest.update(&chunk)');
+    expect(updaterSource).toContain('SHA-256 mismatch');
   });
 
   it('keeps archive extraction paths out of PowerShell source strings', () => {

@@ -24,6 +24,7 @@ fn strip_ansi(s: &str) -> String {
     re.replace_all(s, "").to_string()
 }
 
+#[cfg(test)]
 fn verify_sha256(bytes: &[u8], expected_sha256: &str) -> AppResult<()> {
     let actual_sha256 = format!("{:x}", Sha256::digest(bytes));
     if !actual_sha256.eq_ignore_ascii_case(expected_sha256.trim()) {
@@ -31,6 +32,34 @@ fn verify_sha256(bytes: &[u8], expected_sha256: &str) -> AppResult<()> {
             "SHA-256 mismatch: expected {}, got {}",
             expected_sha256.trim(),
             actual_sha256
+        )));
+    }
+    Ok(())
+}
+
+// A five-minute transfer budget is an explicit interactive-operation limit,
+// not a throughput claim. Streaming keeps memory independent of archive size.
+async fn download_verified_archive(
+    client: &reqwest::Client,
+    url: &str,
+    path: &Path,
+    expected: &str,
+) -> AppResult<()> {
+    use tokio::io::AsyncWriteExt;
+    let mut response = client.get(url).send().await?.error_for_status()?;
+    let mut file = tokio::fs::File::create(path).await?;
+    let mut digest = Sha256::new();
+    while let Some(chunk) = response.chunk().await? {
+        digest.update(&chunk);
+        file.write_all(&chunk).await?;
+    }
+    file.flush().await?;
+    let actual = format!("{:x}", digest.finalize());
+    if !actual.eq_ignore_ascii_case(expected.trim()) {
+        return Err(AppError::Validation(format!(
+            "SHA-256 mismatch: expected {}, got {}",
+            expected.trim(),
+            actual
         )));
     }
     Ok(())
@@ -102,18 +131,22 @@ fn create_update_temp_dir(app: &AppHandle, prefix: &str) -> AppResult<tempfile::
 
 #[cfg(target_os = "windows")]
 fn expand_archive(zip_path: &Path, extract_dir: &Path) -> AppResult<()> {
-    let output = Command::new("powershell")
+    let mut command = Command::new("powershell");
+    command
         .args([
             "-NoProfile",
             "-NonInteractive",
             "-Command",
-            "Expand-Archive -LiteralPath $env:YTDL_FLOW_UPDATE_ZIP -DestinationPath $env:YTDL_FLOW_UPDATE_EXTRACT -Force",
+            "$ErrorActionPreference='Stop'; Expand-Archive -LiteralPath $env:YTDL_FLOW_UPDATE_ZIP -DestinationPath $env:YTDL_FLOW_UPDATE_EXTRACT -Force",
         ])
         .env("YTDL_FLOW_UPDATE_ZIP", zip_path)
         .env("YTDL_FLOW_UPDATE_EXTRACT", extract_dir)
-        .creation_flags(0x08000000)
-        .output()
-        .map_err(|e| AppError::ExternalCommand(e.to_string()))?;
+        .creation_flags(0x08000000);
+    let output = super::maintenance_process::bounded_output(
+        &mut command,
+        super::maintenance_process::EXTRACTION_TIMEOUT,
+    )
+    .map_err(|e| AppError::ExternalCommand(e.to_string()))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr).to_string();
@@ -135,59 +168,67 @@ fn expand_archive(_zip_path: &Path, _extract_dir: &Path) -> AppResult<()> {
 
 #[tauri::command]
 pub async fn update_bun(app: AppHandle, state: State<'_, DownloadState>) -> AppResult<String> {
-    let _mutation_guard = state
+    let mutation_guard = state
         .begin_tool_mutation()
         .map_err(AppError::ExternalCommand)?;
-    update_bun_impl(app).await
+    update_bun_impl(app, mutation_guard).await
 }
 
-async fn update_bun_impl(app: AppHandle) -> AppResult<String> {
+async fn update_bun_impl(
+    app: AppHandle,
+    mutation_guard: crate::state::ToolActivityGuard,
+) -> AppResult<String> {
     let url = BUN_WINDOWS_X64_URL;
     let update_dir = create_update_temp_dir(&app, "ytdl-flow-bun-update-")?;
     let zip_path = update_dir.path().join("bun.zip");
 
     let client = reqwest::Client::builder()
-        .user_agent("Mozilla/5.0")
+        .user_agent("YTDL-Flow")
+        .connect_timeout(std::time::Duration::from_secs(30))
+        .timeout(std::time::Duration::from_secs(300))
         .build()
         .map_err(|e| crate::error::AppError::ExternalCommand(e.to_string()))?;
     let expected_sha256 = fetch_bun_windows_x64_sha256(&client).await?;
 
-    let resp = client.get(url).send().await?.error_for_status()?;
-    let bytes = resp.bytes().await?;
-    verify_sha256(&bytes, &expected_sha256)?;
+    download_verified_archive(&client, url, &zip_path, &expected_sha256).await?;
 
-    fs::write(&zip_path, &bytes).map_err(crate::error::AppError::Io)?;
+    tokio::task::spawn_blocking(move || {
+        let _mutation_guard = mutation_guard;
 
-    let extract_dir = update_dir.path().join("extract");
-    expand_archive(&zip_path, &extract_dir)?;
+        let extract_dir = update_dir.path().join("extract");
+        expand_archive(&zip_path, &extract_dir)?;
 
-    let mut found_bun = None;
-    if let Ok(entries) = fs::read_dir(&extract_dir) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if path.is_dir() {
-                let candidate = path.join("bun.exe");
-                if candidate.exists() {
-                    found_bun = Some(candidate);
+        let mut found_bun = None;
+        if let Ok(entries) = fs::read_dir(&extract_dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.is_dir() {
+                    let candidate = path.join("bun.exe");
+                    if candidate.exists() {
+                        found_bun = Some(candidate);
+                        break;
+                    }
+                } else if path.file_name().and_then(|n| n.to_str()) == Some("bun.exe") {
+                    found_bun = Some(path);
                     break;
                 }
-            } else if path.file_name().and_then(|n| n.to_str()) == Some("bun.exe") {
-                found_bun = Some(path);
-                break;
             }
         }
-    }
 
-    let new_bun_path = found_bun.ok_or_else(|| {
-        crate::error::AppError::ExternalCommand(
-            "Could not find bun.exe in downloaded archive".to_string(),
-        )
-    })?;
+        let new_bun_path = found_bun.ok_or_else(|| {
+            crate::error::AppError::ExternalCommand(
+                "Could not find bun.exe in downloaded archive".to_string(),
+            )
+        })?;
 
-    let target_path = crate::utils::get_binary_path(&app, "bun")?;
-    atomic_replace_files(&[(new_bun_path, target_path)]).map_err(AppError::Io)?;
+        let target_path = crate::utils::get_binary_path(&app, "bun")?;
+        atomic_replace_files(&[(new_bun_path, target_path)]).map_err(AppError::Io)?;
 
-    Ok("Bun updated successfully".to_string())
+        drop(update_dir);
+        Ok("Bun updated successfully".to_string())
+    })
+    .await
+    .map_err(|error| AppError::ExternalCommand(error.to_string()))?
 }
 
 fn atomic_replace_files(replacements: &[(PathBuf, PathBuf)]) -> std::io::Result<()> {
@@ -219,6 +260,24 @@ fn atomic_replace_files(replacements: &[(PathBuf, PathBuf)]) -> std::io::Result<
         staged.push(staged_path);
     }
 
+    // Preflight backup cleanup before moving any installed file. A failure on a
+    // later target must not strand an earlier original at its backup path.
+    for (_, target) in replacements {
+        let file_name = target
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("binary");
+        let backup_path = target.with_file_name(format!("{file_name}.update-old"));
+        if backup_path.exists() {
+            if let Err(error) = fs::remove_file(&backup_path) {
+                for path in &staged {
+                    let _ = fs::remove_file(path);
+                }
+                return Err(error);
+            }
+        }
+    }
+
     let mut backups: Vec<(PathBuf, PathBuf)> = Vec::new();
     for (_, target) in replacements {
         if !target.exists() {
@@ -229,9 +288,6 @@ fn atomic_replace_files(replacements: &[(PathBuf, PathBuf)]) -> std::io::Result<
             .and_then(|name| name.to_str())
             .unwrap_or("binary");
         let backup_path = target.with_file_name(format!("{file_name}.update-old"));
-        if backup_path.exists() {
-            fs::remove_file(&backup_path)?;
-        }
         if let Err(error) = fs::rename(target, &backup_path) {
             for (original, backup) in backups.iter().rev() {
                 let _ = fs::rename(backup, original);
@@ -268,7 +324,7 @@ fn atomic_replace_files(replacements: &[(PathBuf, PathBuf)]) -> std::io::Result<
 
 #[tauri::command]
 pub async fn update_ffmpeg(app: AppHandle, state: State<'_, DownloadState>) -> AppResult<String> {
-    let _mutation_guard = state
+    let mutation_guard = state
         .begin_tool_mutation()
         .map_err(AppError::ExternalCommand)?;
     // 1. Download
@@ -276,100 +332,147 @@ pub async fn update_ffmpeg(app: AppHandle, state: State<'_, DownloadState>) -> A
     let update_dir = create_update_temp_dir(&app, "ytdl-flow-ffmpeg-update-")?;
     let zip_path = update_dir.path().join("ffmpeg.zip");
 
-    let client = reqwest::Client::new();
+    // Match Bun: bounded connection/transfer; timeout is surfaced to the user.
+    let client = reqwest::Client::builder()
+        .connect_timeout(std::time::Duration::from_secs(30))
+        .timeout(std::time::Duration::from_secs(300))
+        .build()?;
     let expected_sha256 = fetch_ffmpeg_windows_x64_sha256(&client).await?;
 
-    let resp = client.get(url).send().await?.error_for_status()?;
-    let bytes = resp.bytes().await?;
-    verify_sha256(&bytes, &expected_sha256)?;
+    download_verified_archive(&client, url, &zip_path, &expected_sha256).await?;
 
-    fs::write(&zip_path, &bytes).map_err(crate::error::AppError::Io)?;
+    tokio::task::spawn_blocking(move || {
+        let _mutation_guard = mutation_guard;
 
-    // 2. Extract using PowerShell without interpolating paths into command source.
-    let extract_dir = update_dir.path().join("extract");
-    expand_archive(&zip_path, &extract_dir)?;
+        // 2. Extract using PowerShell without interpolating paths into command source.
+        let extract_dir = update_dir.path().join("extract");
+        expand_archive(&zip_path, &extract_dir)?;
 
-    // 3. Find ffmpeg.exe
-    let mut found_ffmpeg = None;
-    if let Ok(entries) = fs::read_dir(&extract_dir) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if path.is_dir() {
-                // Usually inside ffmpeg-x.y.z-essentials_build/bin/ffmpeg.exe
-                let candidate = path.join("bin").join("ffmpeg.exe");
-                if candidate.exists() {
-                    found_ffmpeg = Some(candidate);
-                    break;
+        // 3. Find ffmpeg.exe
+        let mut found_ffmpeg = None;
+        if let Ok(entries) = fs::read_dir(&extract_dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.is_dir() {
+                    // Usually inside ffmpeg-x.y.z-essentials_build/bin/ffmpeg.exe
+                    let candidate = path.join("bin").join("ffmpeg.exe");
+                    if candidate.exists() {
+                        found_ffmpeg = Some(candidate);
+                        break;
+                    }
                 }
             }
         }
-    }
 
-    let new_ffmpeg_path = found_ffmpeg.ok_or_else(|| {
-        crate::error::AppError::ExternalCommand(
-            "Could not find ffmpeg.exe in downloaded archive".to_string(),
-        )
-    })?;
-    let new_ffprobe_path = new_ffmpeg_path
-        .parent()
-        .map(|parent| parent.join("ffprobe.exe"))
-        .ok_or_else(|| {
-            AppError::ExternalCommand("Could not resolve ffprobe.exe source directory".to_string())
+        let new_ffmpeg_path = found_ffmpeg.ok_or_else(|| {
+            crate::error::AppError::ExternalCommand(
+                "Could not find ffmpeg.exe in downloaded archive".to_string(),
+            )
         })?;
+        let new_ffprobe_path = new_ffmpeg_path
+            .parent()
+            .map(|parent| parent.join("ffprobe.exe"))
+            .ok_or_else(|| {
+                AppError::ExternalCommand(
+                    "Could not resolve ffprobe.exe source directory".to_string(),
+                )
+            })?;
 
-    // 4. Replace ffmpeg + ffprobe as one rollback-aware group. Handled failures restore prior targets; abrupt process loss is not crash-atomic.
-    let target_ffmpeg = crate::utils::get_binary_path(&app, "ffmpeg")?;
-    let target_ffprobe = crate::utils::get_binary_path(&app, "ffprobe")?;
-    atomic_replace_files(&[
-        (new_ffmpeg_path, target_ffmpeg),
-        (new_ffprobe_path, target_ffprobe),
-    ])
-    .map_err(AppError::Io)?;
+        // 4. Replace ffmpeg + ffprobe as one rollback-aware group. Handled failures restore prior targets; abrupt process loss is not crash-atomic.
+        let target_ffmpeg = crate::utils::get_binary_path(&app, "ffmpeg")?;
+        let target_ffprobe = crate::utils::get_binary_path(&app, "ffprobe")?;
+        atomic_replace_files(&[
+            (new_ffmpeg_path, target_ffmpeg),
+            (new_ffprobe_path, target_ffprobe),
+        ])
+        .map_err(AppError::Io)?;
 
-    Ok("FFmpeg updated successfully".to_string())
+        drop(update_dir);
+        Ok("FFmpeg updated successfully".to_string())
+    })
+    .await
+    .map_err(|error| AppError::ExternalCommand(error.to_string()))?
 }
 
 #[tauri::command]
 pub async fn update_ytdlp(app: AppHandle, state: State<'_, DownloadState>) -> AppResult<String> {
-    let _mutation_guard = state
+    let mutation_guard = state
         .begin_tool_mutation()
         .map_err(AppError::ExternalCommand)?;
-    // Use sidecar to execute yt-dlp -U
-    // This avoids manually finding the binary path, which is complex for sidecars (target triples)
-    let output = app
+    let sidecar = app
         .shell()
         .sidecar("yt-dlp")
-        .map_err(|e| {
-            crate::error::AppError::ExternalCommand(format!("Failed to create sidecar: {}", e))
-        })?
-        .args(["-U"])
-        .output()
-        .await
-        .map_err(|e| {
-            crate::error::AppError::ExternalCommand(format!("Failed to execute yt-dlp: {}", e))
-        })?;
+        .map_err(|e| AppError::ExternalCommand(e.to_string()))?
+        .args(["-U"]);
+    let mut command: Command = sidecar.into();
+    tokio::task::spawn_blocking(move || {
+        let _mutation_guard = mutation_guard;
+        let output = super::maintenance_process::bounded_output(
+            &mut command,
+            std::time::Duration::from_secs(300),
+        )?;
 
-    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
 
-    let combined = format!("{}\n{}", stdout, stderr);
-    let cleaned = strip_ansi(&combined).trim().to_string();
+        let combined = format!("{}\n{}", stdout, stderr);
+        let cleaned = strip_ansi(&combined).trim().to_string();
 
-    if !output.status.success() {
-        return Err(crate::error::AppError::ExternalCommand(format!(
-            "Failed: {}",
-            cleaned
-        )));
-    }
+        if !output.status.success() {
+            return Err(crate::error::AppError::ExternalCommand(format!(
+                "Failed: {}",
+                cleaned
+            )));
+        }
 
-    Ok(cleaned)
+        Ok(cleaned)
+    })
+    .await
+    .map_err(|error| AppError::ExternalCommand(error.to_string()))?
 }
 
 #[cfg(test)]
 mod update_atomic_tests {
-    use super::{atomic_replace_files, parse_sha256, verify_sha256};
+    use super::{atomic_replace_files, download_verified_archive, parse_sha256, verify_sha256};
     use std::fs;
     use std::path::PathBuf;
+
+    #[tokio::test]
+    async fn streamed_archive_checks_complete_body_before_replacement() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!("http://{}/fixture.zip", listener.local_addr().unwrap());
+        let server = tokio::spawn(async move {
+            for _ in 0..2 {
+                let (mut socket, _) = listener.accept().await.unwrap();
+                let mut request = [0; 1024];
+                socket.read(&mut request).await.unwrap();
+                socket.write_all(b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n1\r\na\r\n2\r\nbc\r\n0\r\n\r\n").await.unwrap();
+            }
+        });
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("archive.zip");
+        let client = reqwest::Client::builder()
+            .no_proxy()
+            .timeout(std::time::Duration::from_secs(5))
+            .build()
+            .unwrap();
+        download_verified_archive(
+            &client,
+            &url,
+            &path,
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+        )
+        .await
+        .unwrap();
+        assert_eq!(fs::read(&path).unwrap(), b"abc");
+        assert!(
+            download_verified_archive(&client, &url, &path, &"0".repeat(64))
+                .await
+                .is_err()
+        );
+        server.await.unwrap();
+    }
 
     fn temp_dir(name: &str) -> PathBuf {
         let dir =
@@ -377,6 +480,26 @@ mod update_atomic_tests {
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).expect("create temp dir");
         dir
+    }
+
+    #[test]
+    fn backup_cleanup_failure_preserves_every_existing_target() {
+        let dir = tempfile::tempdir().unwrap();
+        let src_a = dir.path().join("src-a.exe");
+        let src_b = dir.path().join("src-b.exe");
+        let dst_a = dir.path().join("dst-a.exe");
+        let dst_b = dir.path().join("dst-b.exe");
+        fs::write(&src_a, b"new-a").unwrap();
+        fs::write(&src_b, b"new-b").unwrap();
+        fs::write(&dst_a, b"old-a").unwrap();
+        fs::write(&dst_b, b"old-b").unwrap();
+        fs::create_dir(dir.path().join("dst-b.exe.update-old")).unwrap();
+
+        assert!(atomic_replace_files(&[(src_a, dst_a.clone()), (src_b, dst_b.clone())]).is_err());
+        assert_eq!(fs::read(&dst_a).unwrap(), b"old-a");
+        assert_eq!(fs::read(&dst_b).unwrap(), b"old-b");
+        assert!(!dir.path().join("dst-a.exe.update-new").exists());
+        assert!(!dir.path().join("dst-b.exe.update-new").exists());
     }
 
     #[test]

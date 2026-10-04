@@ -1,4 +1,4 @@
-//! Windows process ownership used only by explicit release smoke checks.
+//! Windows process-tree ownership for maintenance and explicit release smoke checks.
 
 use std::os::windows::io::{FromRawHandle, OwnedHandle, RawHandle};
 use windows_sys::Win32::System::JobObjects::{
@@ -7,7 +7,7 @@ use windows_sys::Win32::System::JobObjects::{
     JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
 };
 
-fn contain_process(process: RawHandle) -> std::io::Result<OwnedHandle> {
+pub(crate) fn contain_process(process: RawHandle) -> std::io::Result<OwnedHandle> {
     // No breakaway flags: all subsequent analysis/download descendants inherit
     // the job. The OS closes it at process exit, including abrupt termination.
     unsafe {

@@ -8,8 +8,10 @@ import { APP_SELF_UPDATE_ENABLED } from '../constants';
 import QRCode from 'qrcode';
 import NeoIcon from './NeoIcon.vue';
 import { useFilenameSettings } from './settingsPanel.filename';
+import { createToolOperationQueue, toolVersionDisplay } from './settingsPanel.tools';
 
 const store = useAppStore();
+const runToolOperation = createToolOperationQueue();
 const { t } = useI18n();
 defineEmits<{ close: [] }>();
 const { extraArgs, platformCookies } = toRefs(store);
@@ -45,7 +47,7 @@ const checkZombies = async () => {
     zombieCheckState.value = 'checking';
     zombieHealthStatus.value = '';
     try {
-        const health = await store.inspectToolHealth();
+        const health = await runToolOperation('health', () => store.inspectToolHealth());
         if (health.state === 'busy') {
             activeToolOperations.value = health.activeOperations;
             zombieCheckState.value = 'busy';
@@ -61,9 +63,11 @@ const checkZombies = async () => {
 };
 
 const killZombies = async () => {
+    if (zombieCheckState.value !== 'ready' || anyToolUpdating.value) return;
+    zombieCheckState.value = 'checking';
     zombieHealthStatus.value = '';
     try {
-        await store.killZombieProcesses();
+        await runToolOperation('cleanup', () => store.killZombieProcesses());
         zombieCheckState.value = 'checking';
         if (zombieRecheckTimer) clearTimeout(zombieRecheckTimer);
         zombieRecheckTimer = setTimeout(() => {
@@ -246,11 +250,19 @@ const initCookiesState = () => {
 const binariesInfo = ref({ ytdlp: 'Unknown', ffmpeg: 'Unknown', bun: 'Unknown' });
 const binariesLoadState = ref<'loading' | 'ready' | 'error'>('loading');
 const isUpdatingBinaries = reactive({ ytdlp: false, ffmpeg: false, bun: false });
+const anyToolUpdating = computed(() => Object.values(isUpdatingBinaries).some(Boolean));
+const toolUpdateStatus = ref('');
+const toolUpdateFailed = ref(false);
+const toolVersions = computed(() => ({
+    ytdlp: toolVersionDisplay(binariesInfo.value.ytdlp),
+    ffmpeg: toolVersionDisplay(binariesInfo.value.ffmpeg),
+    bun: toolVersionDisplay(binariesInfo.value.bun),
+}));
 
 const fetchBinariesInfo = async () => {
     binariesLoadState.value = 'loading';
     try {
-        const info = await store.getBinariesInfo();
+        const info = await runToolOperation('versions', () => store.getBinariesInfo());
         binariesInfo.value = info;
         binariesLoadState.value = 'ready';
     } catch (err) {
@@ -260,15 +272,19 @@ const fetchBinariesInfo = async () => {
 };
 
 const updateTool = async (tool: 'ytdlp' | 'ffmpeg' | 'bun') => {
-    if (isUpdatingBinaries[tool]) return;
+    if (anyToolUpdating.value) return;
     isUpdatingBinaries[tool] = true;
+    toolUpdateStatus.value = '';
+    toolUpdateFailed.value = false;
     try {
-        const result = await store.updateTool(tool);
-        alert(t('settings.tools.update_result', { tool, result }));
-        await fetchBinariesInfo();
+        const result = await runToolOperation('update', () => store.updateTool(tool));
+        toolUpdateStatus.value = t('settings.tools.update_result', { tool, result });
     } catch (e) {
-        alert(t('settings.tools.update_failed', { tool, error: String(e) }));
+        toolUpdateFailed.value = true;
+        toolUpdateStatus.value = t('settings.tools.update_failed', { tool, error: String(e) });
     } finally {
+        await fetchBinariesInfo();
+        await checkZombies();
         isUpdatingBinaries[tool] = false;
     }
 };
@@ -316,8 +332,6 @@ const formatFileSize = (bytes: number) => {
 };
 
 onMounted(async () => {
-    fetchBinariesInfo();
-    checkZombies();
     checkNotificationPermission();
     loadNotificationSettings();
     await fetchBrowsers();
@@ -754,6 +768,11 @@ watch(selectedLangs, (newVal) => {
 type SettingsTab = 'general' | 'format' | 'advanced' | 'tools';
 const settingsTabOrder: SettingsTab[] = ['general', 'format', 'advanced', 'tools'];
 const activeTab = ref<SettingsTab>('format');
+watch(activeTab, async tab => {
+    if (tab !== 'tools') return;
+    await fetchBinariesInfo();
+    await checkZombies();
+});
 const settingsTabsRef = useTemplateRef<HTMLElement>('settingsTabsRef');
 const settingsTabOrientation = ref<'horizontal' | 'vertical'>('horizontal');
 let settingsTabsResizeObserver: ResizeObserver | null = null;
@@ -1303,7 +1322,7 @@ const handleUASelect = (e: Event) => {
                     </span>
                 </div>
 
-                <div class="setting-group" style="margin-top: var(--spacing-lg);">
+                <div class="setting-group">
                     <div class="group-header">
                         <h4>{{ t('settings.tools.title') }}</h4>
                         <button v-if="binariesLoadState === 'ready'" class="text-btn small" @click="copyEnvInfo">
@@ -1315,13 +1334,13 @@ const handleUASelect = (e: Event) => {
                         <div class="settings-tool-row">
                             <div class="tool-header">
                                 <span class="tool-name">yt-dlp</span>
-                                <span class="tool-status" :class="{ 'ok': binariesInfo.ytdlp !== 'Unknown' }">
-                                    {{ binariesInfo.ytdlp }}
+                                <span class="tool-status" :class="{ unavailable: !toolVersions.ytdlp.available }" :title="toolVersions.ytdlp.full">
+                                    {{ toolVersions.ytdlp.available ? toolVersions.ytdlp.label : t('settings.tools.unavailable') }}
                                 </span>
                             </div>
                             <div class="tool-actions">
                                 <button class="neo-button secondary small" @click="updateTool('ytdlp')"
-                                    :disabled="isUpdatingBinaries.ytdlp">
+                                    :disabled="anyToolUpdating || zombieCheckState === 'busy'">
                                     {{ isUpdatingBinaries.ytdlp ? t('settings.tools.updating') :
                                         t('settings.tools.update_btn') }}
                                 </button>
@@ -1332,13 +1351,13 @@ const handleUASelect = (e: Event) => {
                         <div class="settings-tool-row">
                             <div class="tool-header">
                                 <span class="tool-name">FFmpeg</span>
-                                <span class="tool-status" :class="{ 'ok': binariesInfo.ffmpeg !== 'Unknown' }">
-                                    {{ binariesInfo.ffmpeg }}
+                                <span class="tool-status" :class="{ unavailable: !toolVersions.ffmpeg.available }" :title="toolVersions.ffmpeg.full">
+                                    {{ toolVersions.ffmpeg.available ? toolVersions.ffmpeg.label : t('settings.tools.unavailable') }}
                                 </span>
                             </div>
                             <div class="tool-actions">
                                 <button class="neo-button secondary small" @click="updateTool('ffmpeg')"
-                                    :disabled="isUpdatingBinaries.ffmpeg">
+                                    :disabled="anyToolUpdating || zombieCheckState === 'busy'">
                                     {{ isUpdatingBinaries.ffmpeg ? t('settings.tools.updating') :
                                         t('settings.tools.reinstall_btn') }}
                                 </button>
@@ -1349,13 +1368,13 @@ const handleUASelect = (e: Event) => {
                         <div class="settings-tool-row">
                             <div class="tool-header">
                                 <span class="tool-name">Bun</span>
-                                <span class="tool-status" :class="{ 'ok': binariesInfo.bun !== 'Not Found' }">
-                                    {{ binariesInfo.bun }}
+                                <span class="tool-status" :class="{ unavailable: !toolVersions.bun.available }" :title="toolVersions.bun.full">
+                                    {{ toolVersions.bun.available ? toolVersions.bun.label : t('settings.tools.unavailable') }}
                                 </span>
                             </div>
                             <div class="tool-actions">
                                 <button class="neo-button secondary small" @click="updateTool('bun')"
-                                    :disabled="isUpdatingBinaries.bun">
+                                    :disabled="anyToolUpdating || zombieCheckState === 'busy'">
                                     {{ isUpdatingBinaries.bun ? t('settings.tools.updating') :
                                         t('settings.tools.upgrade_btn') }}
                                 </button>
@@ -1371,6 +1390,16 @@ const handleUASelect = (e: Event) => {
                         <div class="spinner-small"></div>
                         <span>{{ t('settings.environment.detecting') }}</span>
                     </div>
+                    <p v-if="toolUpdateStatus" class="tool-update-status" :class="{ 'error-text': toolUpdateFailed }" :role="toolUpdateFailed ? 'alert' : 'status'" aria-live="polite">{{ toolUpdateStatus }}</p>
+                    <details v-if="binariesLoadState === 'ready'" class="tool-version-details">
+                        <summary>{{ t('settings.tools.version_details') }}</summary>
+                        <dl>
+                            <template v-for="(version, tool) in toolVersions" :key="tool">
+                                <dt>{{ tool === 'ffmpeg' ? 'FFmpeg' : tool === 'ytdlp' ? 'yt-dlp' : 'Bun' }}</dt>
+                                <dd>{{ version.available ? version.full : t('settings.tools.unavailable') }}</dd>
+                            </template>
+                        </dl>
+                    </details>
                     <span class="helper-text">
                         {{ t('settings.tools.hint') }}
                     </span>
@@ -2774,7 +2803,7 @@ input:checked+.slider:before {
 }
 
 .tool-name {
-    font-weight: 700;
+    font-weight: 600;
     font-size: 0.95rem;
 }
 
@@ -2787,6 +2816,12 @@ input:checked+.slider:before {
 
 .tool-status.ok {
     color: var(--color-success);
+}
+.tool-update-status {
+    font-size: 0.875rem;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
 }
 
 .tool-actions {

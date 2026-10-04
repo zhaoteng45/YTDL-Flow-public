@@ -159,13 +159,15 @@
     },
     "tools": {
       "title": "下载工具链",
-      "hint": "所有核心二进制均为内置自带，无需额外配置。可在此一键升级至官方最新稳定版。",
+      "hint": "工具随应用安装。更新会从官方来源下载，请在下载任务结束后操作。",
       "updating": "更新中...",
-      "update_btn": "检查更新",
-      "upgrade_btn": "更新组件",
-      "reinstall_btn": "重新拉取",
+      "update_btn": "更新 yt-dlp",
+      "upgrade_btn": "更新 Bun",
+      "reinstall_btn": "更新 FFmpeg",
       "update_result": "{tool} 更新结果: {result}",
-      "update_failed": "{tool} 更新失败: {error}"
+      "update_failed": "{tool} 更新失败: {error}",
+      "unavailable": "不可用",
+      "version_details": "版本详情"
     },
     "app_update": {
       "title": "YTDL-Flow 更新",

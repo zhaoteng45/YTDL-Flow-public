@@ -321,13 +321,15 @@
     },
     "tools": {
       "title": "Download Toolchain",
-      "hint": "All core binaries are bundled. No manual configuration needed. You can upgrade them here to the latest stable versions.",
+      "hint": "Tools are included with the app. Updates download from official sources; finish active downloads first.",
       "updating": "Updating...",
-      "update_btn": "Check Update",
-      "upgrade_btn": "Update Tool",
-      "reinstall_btn": "Re-download",
+      "update_btn": "Update yt-dlp",
+      "upgrade_btn": "Update Bun",
+      "reinstall_btn": "Update FFmpeg",
       "update_result": "{tool} update result: {result}",
-      "update_failed": "{tool} update failed: {error}"
+      "update_failed": "{tool} update failed: {error}",
+      "unavailable": "Unavailable",
+      "version_details": "Version details"
     },
     "app_update": {
       "title": "YTDL-Flow Update",

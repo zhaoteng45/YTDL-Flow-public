@@ -18,34 +18,49 @@ pub async fn get_binaries_info(
     app: AppHandle,
     state: State<'_, DownloadState>,
 ) -> AppResult<BinariesInfo> {
-    let _activity_guard = state
+    let activity_guard = state
         .begin_tool_activity()
         .map_err(AppError::ExternalCommand)?;
-    let ytdlp = get_ytdlp_version_internal(&app)
-        .await
-        .unwrap_or_else(|_| "Unknown".to_string());
-    let ffmpeg = get_ffmpeg_version_internal(&app).unwrap_or_else(|_| "Unknown".to_string());
-    let bun = get_bun_version_internal(&app).unwrap_or_else(|_| "Not Found".to_string());
-    Ok(BinariesInfo { ytdlp, ffmpeg, bun })
+    // Retain ownership inside the worker even if the IPC caller goes away.
+    tokio::task::spawn_blocking(move || {
+        let _activity_guard = activity_guard;
+        let ytdlp = get_ytdlp_version_internal(&app).unwrap_or_else(|_| "Unknown".to_string());
+        let ffmpeg = get_ffmpeg_version_internal(&app).unwrap_or_else(|_| "Unknown".to_string());
+        let bun = get_bun_version_internal(&app).unwrap_or_else(|_| "Not Found".to_string());
+        Ok(BinariesInfo { ytdlp, ffmpeg, bun })
+    })
+    .await
+    .map_err(|error| AppError::ExternalCommand(error.to_string()))?
 }
 
 fn get_bun_version_internal(app: &AppHandle) -> AppResult<String> {
     let path = crate::utils::get_binary_path(app, "bun")?;
+    get_bun_version_at_path(path)
+}
 
-    let cmd_name = if path.exists() {
-        path.into_os_string()
-    } else {
-        "bun".into()
-    };
+fn get_bun_version_at_path(path: std::path::PathBuf) -> AppResult<String> {
+    if !path.is_file() {
+        return Err(AppError::ExternalCommand(
+            "Bundled Bun executable is missing".into(),
+        ));
+    }
 
-    let mut cmd = Command::new(cmd_name);
+    let mut cmd = Command::new(path);
     cmd.arg("--version");
     #[cfg(target_os = "windows")]
     cmd.creation_flags(0x08000000);
 
-    let output = cmd
-        .output()
-        .map_err(|e| crate::error::AppError::ExternalCommand(e.to_string()))?;
+    let output = super::maintenance_process::bounded_output(
+        &mut cmd,
+        super::maintenance_process::INSPECTION_TIMEOUT,
+    )
+    .map_err(|e| crate::error::AppError::ExternalCommand(e.to_string()))?;
+
+    if !output.status.success() || output.stdout.is_empty() {
+        return Err(AppError::ExternalCommand(
+            "Bun version detection failed".into(),
+        ));
+    }
 
     let out_str = String::from_utf8_lossy(&output.stdout);
     let version = out_str
@@ -58,20 +73,31 @@ fn get_bun_version_internal(app: &AppHandle) -> AppResult<String> {
     Ok(version)
 }
 
-async fn get_ytdlp_version_internal(app: &AppHandle) -> AppResult<String> {
-    let output = app
+#[cfg(test)]
+mod bundled_bun_tests {
+    #[test]
+    fn missing_bundled_bun_does_not_borrow_a_system_installation() {
+        let directory = tempfile::tempdir().expect("fixture directory");
+        let error = super::get_bun_version_at_path(directory.path().join("missing-bun.exe"))
+            .expect_err("a missing bundled binary must be unavailable");
+        assert!(error
+            .to_string()
+            .contains("Bundled Bun executable is missing"));
+    }
+}
+
+fn get_ytdlp_version_internal(app: &AppHandle) -> AppResult<String> {
+    let sidecar = app
         .shell()
         .sidecar("yt-dlp")
-        .map_err(|e| {
-            crate::error::AppError::ExternalCommand(format!("Failed to create sidecar: {}", e))
-        })?
+        .map_err(|e| AppError::ExternalCommand(e.to_string()))?
         .env("PATH", crate::utils::get_enhanced_path(app))
-        .args(["--version"])
-        .output()
-        .await
-        .map_err(|e| {
-            crate::error::AppError::ExternalCommand(format!("Failed to execute yt-dlp: {}", e))
-        })?;
+        .args(["--version"]);
+    let mut command: Command = sidecar.into();
+    let output = super::maintenance_process::bounded_output(
+        &mut command,
+        super::maintenance_process::INSPECTION_TIMEOUT,
+    )?;
 
     if !output.status.success() {
         return Err(crate::error::AppError::ExternalCommand(
@@ -93,9 +119,17 @@ fn get_ffmpeg_version_internal(app: &AppHandle) -> AppResult<String> {
     #[cfg(target_os = "windows")]
     cmd.creation_flags(0x08000000);
 
-    let output = cmd
-        .output()
-        .map_err(|e| crate::error::AppError::ExternalCommand(e.to_string()))?;
+    let output = super::maintenance_process::bounded_output(
+        &mut cmd,
+        super::maintenance_process::INSPECTION_TIMEOUT,
+    )
+    .map_err(|e| crate::error::AppError::ExternalCommand(e.to_string()))?;
+
+    if !output.status.success() || output.stdout.is_empty() {
+        return Err(AppError::ExternalCommand(
+            "FFmpeg version detection failed".into(),
+        ));
+    }
 
     let out_str = String::from_utf8_lossy(&output.stdout);
     let first_line = out_str.lines().next().unwrap_or("Unknown");
