@@ -342,18 +342,18 @@ defineExpose({
         </button>
       </div>
 
-      <div class="dir-control-group cookie-control-group">
+      <div class="dir-control-group cookie-control-group cookie-path-preview" :data-cookie-path="extraArgs.cookies || undefined">
         <button class="input-utility-button u-flex-center action-btn dir-select-btn cookie-select-btn"
             @click="handleSelectCookies"
             :aria-label="extraArgs.cookies ? `Cookies: ${extraArgs.cookies}` : t('input.pot_idle_title')"
-            :title="extraArgs.cookies ? `Cookies: ${extraArgs.cookies}` : t('input.pot_idle_title')">
+            >
           <NeoIcon name="cookie" :size="18" class="svg-icon" />
           <div class="btn-content-col">
             <div class="cookie-title-row">
               <span class="text-primary cookie-title-text"
                   :title="extraArgs.cookies ? (isBrowserCookie(extraArgs.cookies) ? t('input.cookie_browser_login', { value: extraArgs.cookies }) : t('input.cookie_file_label')) : t('input.cookie_file_label')">
                 <template v-if="extraArgs.cookies">
-                  {{ isBrowserCookie(extraArgs.cookies) ? t('input.cookie_browser', { value: extraArgs.cookies }) : t('input.cookie_file_label') }}
+                  {{ isBrowserCookie(extraArgs.cookies) ? t('input.cookie_browser', { value: extraArgs.cookies }) : cookieFileName }}
                 </template>
                 <template v-else>{{ t('input.cookie_file_label') }}</template>
               </span>
@@ -367,11 +367,7 @@ defineExpose({
                 {{ t('input.pot_badge_idle') }}
               </span>
             </div>
-            <span class="dir-path-text cookie-active-path" v-if="extraArgs.cookies" :title="extraArgs.cookies">
-              <NeoIcon name="file" :size="12" class="u-mr-xs file-indicator-icon" />
-              <span class="cookie-filename-truncate">{{ isBrowserCookie(extraArgs.cookies) ? extraArgs.cookies : cookieFileName }}</span>
-            </span>
-            <span class="dir-path-text" v-else :title="t('input.cookie_import_hint')">
+            <span class="dir-path-text" v-if="!extraArgs.cookies" :title="t('input.cookie_import_hint')">
               <NeoIcon name="zap" :size="12" class="u-mr-xs" />{{ t('input.cookie_import_hint') }}
             </span>
           </div>
@@ -859,23 +855,6 @@ defineExpose({
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.cookie-active-path {
-  display: inline-flex;
-  align-items: center;
-  min-width: 0;
-}
-
-.cookie-filename-truncate {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
-}
-
-.file-indicator-icon {
-  flex-shrink: 0;
 }
 
 

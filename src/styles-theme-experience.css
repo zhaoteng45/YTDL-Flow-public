@@ -1613,9 +1613,9 @@
 :root:is([data-theme="cobalt-butter"], [data-theme="fluent"], [data-theme="material"]) .header-main { gap: 12px; }
 :root:is([data-theme="cobalt-butter"], [data-theme="fluent"], [data-theme="material"]) .logo { font-size: 1.15rem; font-weight: 700; }
 :root:is([data-theme="cobalt-butter"], [data-theme="fluent"], [data-theme="material"]) .cookie-title-text {
-  white-space: normal;
-  overflow: visible;
-  text-overflow: clip;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   line-height: 1.35;
 }
 :root:is([data-theme="cobalt-butter"], [data-theme="fluent"], [data-theme="material"]) .cookie-title-row { margin-bottom: 4px; }
@@ -1691,3 +1691,34 @@
 }
 :root[data-theme="cobalt-butter"] .header { border-radius: var(--radius-lg); }
 :root[data-theme="cobalt-butter"] .sidebar-panel { border-radius: var(--radius-lg); }
+:root .cookie-path-preview {
+  position: relative;
+  min-width: 0;
+}
+
+:root .cookie-path-preview[data-cookie-path]::after {
+  content: attr(data-cookie-path);
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  width: max-content;
+  max-width: min(400px, 100%);
+  box-sizing: border-box;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 0.8rem;
+  font-weight: 400;
+  line-height: 1.5;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  z-index: 100;
+  pointer-events: none;
+}
+
+:root .cookie-path-preview[data-cookie-path]:is(:hover, :focus-within)::after {
+  display: block;
+}

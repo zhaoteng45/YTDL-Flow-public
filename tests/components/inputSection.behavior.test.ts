@@ -65,7 +65,8 @@ describe('InputSection primary flow', () => {
 
   it('prevents long cookie filenames from squeezing the POT status badge out of view', () => {
     expect(source).toMatch(/class="cookie-title-row"[\s\S]*?class="text-primary cookie-title-text"[\s\S]*?class="pot-status-badge/);
-    expect(source).toMatch(/class="dir-path-text cookie-active-path"/);
+    expect(source).not.toContain('class="dir-path-text cookie-active-path"');
+    expect(source).toContain(': cookieFileName }}');
     expect(source).toMatch(/\.cookie-title-row \.text-primary,\s*\.cookie-title-text\s*\{[\s\S]*width:\s*auto;/);
     expect(source).toMatch(/\.pot-status-badge\s*\{[\s\S]*flex-shrink:\s*0;/);
   });

@@ -83,7 +83,7 @@ async function mount(locale: Locale) {
   const store = useAppStore(pinia);
   store.downloadDir = 'C:/Users/zhao/Downloads/Very Long Media Archive Directory';
   store.systemDownloadDir = 'C:/Users/zhao/Downloads';
-  store.extraArgs.cookies = '';
+  store.extraArgs.cookies = 'C:\\Cookies\\' + 'long-cookie-name-'.repeat(12) + '.txt';
 
   const analyzeEvents: string[][] = [];
   const i18n = createI18n({
@@ -133,6 +133,12 @@ async function validate(locale: Locale, theme: string, width: number) {
   const openDirectory = host.querySelector<HTMLElement>('.open-dir-btn');
 
   check(locale, theme, width, Boolean(wrapper && textarea && analyze && directory && openDirectory), `${label}: primary controls render`);
+  const credential = host.querySelector<HTMLElement>('.cookie-path-preview');
+  const cookieName = host.querySelector<HTMLElement>('.cookie-title-text');
+  check(locale, theme, width, Boolean(credential?.dataset.cookiePath?.startsWith('C:\\Cookies\\')), `${label}: complete path available`);
+  check(locale, theme, width, Boolean(cookieName && getComputedStyle(cookieName).textOverflow === 'ellipsis'), `${label}: long filename uses ellipsis`);
+  host.querySelector<HTMLButtonElement>('.cookie-select-btn')?.focus();
+  check(locale, theme, width, Boolean(credential && getComputedStyle(credential, '::after').display === 'block'), `${label}: keyboard focus shows full path`);
 
   if (wrapper) {
     const style = getComputedStyle(wrapper);

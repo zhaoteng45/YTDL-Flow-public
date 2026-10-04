@@ -83,6 +83,7 @@ async function mount(locale: Locale) {
 
   const pinia = createPinia();
   const store = useAppStore(pinia);
+  store.platformCookies.youtube = 'C:\\Cookies\\' + 'long-cookie-name-'.repeat(12) + '.txt';
   Object.assign(store, {
     checkZombieProcesses: async () => 0,
     inspectToolHealth: async () => ({ state: 'ready', zombieCount: 0 }),
@@ -262,6 +263,15 @@ async function validate(locale: Locale, theme: string, width: number) {
     check(locale, theme, width, button.getAttribute('aria-pressed') === 'true', `${label}: tab ${index} aria pressed`);
     check(locale, theme, width, Boolean(pane), `${label}: tab ${index} pane renders`);
     check(locale, theme, width, noHorizontalOverflow(pane), `${label}: tab ${index} pane no horizontal overflow`);
+    const credential = pane?.querySelector<HTMLElement>('.cookie-path-preview');
+    if (credential) {
+      credential.focus();
+      check(locale, theme, width, getComputedStyle(credential, '::after').display === 'block', `${label}: focused credential shows path`);
+      const name = credential.querySelector<HTMLElement>('.cookie-connection-name');
+      check(locale, theme, width, Boolean(name && !name.textContent?.includes('C:\\Cookies\\') && getComputedStyle(name).textOverflow === 'ellipsis'), `${label}: basename only and ellipsis`);
+      const logout = credential.parentElement?.querySelector<HTMLElement>('button');
+      check(locale, theme, width, Boolean(logout && getComputedStyle(logout).whiteSpace === 'nowrap'), `${label}: logout remains on one line`);
+    }
     const selected = getComputedStyle(button);
     check(locale, theme, width, contrast(selected.color, selected.backgroundColor) >= 4.5, `${label}: selected nav text meets AA`);
 
@@ -330,7 +340,8 @@ async function run() {
   document.documentElement.dataset.theme = themes.find(theme => theme === captureTheme) ?? THEMES.MATERIAL;
   host.style.width = captureTheme ? '960px' : '720px';
   await mount('zh-CN');
-  await activateTab(3);
+  await activateTab(0);
+  host.querySelector<HTMLElement>('.cookie-path-preview')?.focus();
 
   window.__YTDL_SETTINGS_UI_MATRIX__ = {
     done: true,

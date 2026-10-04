@@ -459,7 +459,7 @@ const youtubeConnectionInfo = computed(() => {
     if (!profile) return '';
     const browser = browserOptions.value.find((option) => option.value.toLowerCase() === profile.toLowerCase());
     if (browser) return t('settings.auth.connected_as', { name: browser.label });
-    const name = profile.split(/[\/]/).pop() || 'cookies.txt';
+    const name = profile.split(/[/\\]/).pop() || 'cookies.txt';
     return t('settings.auth.connected_as', { name });
 });
 
@@ -925,9 +925,9 @@ const handleUASelect = (e: Event) => {
                         </div>
 
                         <div v-else class="logged-in-state fade-in" style="margin-top: 12px;">
-                            <div class="user-badge">
+                            <div class="user-badge cookie-path-preview" :data-cookie-path="platformCookies.youtube" tabindex="0" :aria-label="platformCookies.youtube">
                                 <NeoIcon name="check" :size="14" class="u-mr-xs text-success" />
-                                <span class="text">{{ youtubeConnectionInfo }}</span>
+                                <span class="cookie-connection-name">{{ youtubeConnectionInfo }}</span>
                             </div>
                             <button class="text-btn danger small" @click="disconnectYouTube">
                                 {{ t('settings.auth.logout') }}
@@ -1956,7 +1956,23 @@ const handleUASelect = (e: Event) => {
     gap: var(--spacing-sm);
     font-weight: 600;
     color: var(--color-success);
+    min-width: 0;
+    flex: 1 1 auto;
 }
+
+.cookie-connection-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+}
+
+.logged-in-state > button {
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.user-badge > svg { flex-shrink: 0; }
 
 .user-avatar {
     width: 28px;
