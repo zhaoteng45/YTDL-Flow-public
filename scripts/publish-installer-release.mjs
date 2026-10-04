@@ -24,20 +24,19 @@ const installer = `YTDL-Flow_${evidence.version}_x64_zh-CN.msi`;
 const expected = [installer, 'THIRD_PARTY_NOTICES.md', 'toolchain-manifest.json', 'runtime-source-review.json', 'runtime-redistribution-audit-20261004.md', 'release-evidence.json', 'SHA256SUMS.txt'].sort();
 if (JSON.stringify(names) !== JSON.stringify(expected)) throw new Error('Unexpected or missing release assets');
 if (fileSha256(path.join(root, installer)) !== evidence.installerSha256) throw new Error('Installer changed after acceptance');
-let release = null;
-try {
-  release = JSON.parse(gh('api', `repos/${repository}/releases/tags/${tag}`));
-} catch (error) {
-  if (!/HTTP 404/.test(String(error.stderr))) throw error;
-}
+// Tag lookup returns published releases only. The authenticated list includes
+// drafts; paginate so retries also find an older partially uploaded release.
+const readRelease = () => JSON.parse(gh('api', '--paginate', '--slurp', `repos/${repository}/releases?per_page=100`))
+  .flat().find(item => item.tag_name === tag) ?? null;
+const release = readRelease();
 const action = releaseAction(release, { tag, sourceCommit: head });
 if (release?.assets.some(asset => !expected.includes(asset.name))) throw new Error('Draft contains unexpected assets');
 if (action === 'create') {
   gh('release', 'create', tag, '--repo', repository, '--target', head, '--draft', '--title', `YTDL-Flow ${evidence.version}`, '--notes-file', 'docs/RELEASE_INSTALLER_NOTES.md');
 }
 gh('release', 'upload', tag, ...names.map(name => path.join(root, name)), '--repo', repository, '--clobber');
-const uploaded = JSON.parse(gh('api', `repos/${repository}/releases/tags/${tag}`));
-if (!uploaded.draft || uploaded.assets.length !== names.length) throw new Error('Draft upload incomplete');
+const uploaded = readRelease();
+if (!uploaded?.draft || uploaded.assets.length !== names.length) throw new Error('Draft upload incomplete');
 for (const asset of uploaded.assets) {
   if (!names.includes(asset.name) || asset.digest !== `sha256:${fileSha256(path.join(root, asset.name))}`) throw new Error('Uploaded release asset hash mismatch');
 }
