@@ -6,24 +6,8 @@ on:
       - 'v*'
   workflow_dispatch:
     inputs:
-      prepare_release:
-        description: 'Create a draft release after all installer checks pass'
-        type: boolean
-        default: false
       publish_release:
-        description: 'Publish an existing verified draft without rebuilding'
-        type: boolean
-        default: false
-      release_tag:
-        description: 'Existing draft tag to publish, e.g. v3.1.3'
-        type: string
-        default: ''
-      installer_sha256:
-        description: 'SHA256 of the draft MSI you tested'
-        type: string
-        default: ''
-      human_verified:
-        description: 'I verified the release UI, real website download and user settings'
+        description: 'Publish the tested unsigned Windows installer to Releases'
         type: boolean
         default: false
 
@@ -31,12 +15,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: installer-release
   cancel-in-progress: false
 
 jobs:
   verify-installer:
-    if: inputs.publish_release != true
     runs-on: windows-latest
     timeout-minutes: 60
     permissions:
@@ -54,37 +37,27 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: x86_64-pc-windows-msvc
+          components: rustfmt, clippy
       - uses: swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
       - run: bun install --frozen-lockfile
       - name: Check source
         run: |
+          $PSNativeCommandUseErrorActionPreference = $true
           bun run verify:fast
           bun run test
           bun run test:packages
-      - name: Check signing credentials
-        id: signing
-        shell: pwsh
-        env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          WINDOWS_SIGNING_PFX_BASE64: ${{ secrets.WINDOWS_SIGNING_PFX_BASE64 }}
-          WINDOWS_SIGNING_PASSWORD: ${{ secrets.WINDOWS_SIGNING_PASSWORD }}
-          PREPARE_RELEASE: ${{ github.ref_type == 'tag' || inputs.prepare_release == true }}
-        run: |
-          $available = [bool]($env:TAURI_SIGNING_PRIVATE_KEY -and $env:WINDOWS_SIGNING_PFX_BASE64 -and $env:WINDOWS_SIGNING_PASSWORD)
-          "available=$($available.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
-          if ($env:PREPARE_RELEASE -eq 'true' -and -not $available) { throw 'Release blocked: updater key and Windows signing certificate credentials are required' }
-          if (-not $available) { Write-Output 'Validation only: release signing has not been configured' }
-      - name: Configure Windows signing
-        if: steps.signing.outputs.available == 'true'
-        env:
-          WINDOWS_SIGNING_PFX_BASE64: ${{ secrets.WINDOWS_SIGNING_PFX_BASE64 }}
-          WINDOWS_SIGNING_PASSWORD: ${{ secrets.WINDOWS_SIGNING_PASSWORD }}
-        run: pwsh -NoProfile -File scripts/configure-release-signing.ps1
       - name: Prepare runtime tools
         run: bun scripts/prepare-release-sidecars.mjs --target x86_64-pc-windows-msvc
       - run: bun scripts/setup-sidecars.mjs --target x86_64-pc-windows-msvc
+      - name: Check Rust
+        working-directory: src-tauri
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          cargo fmt --check
+          cargo clippy --locked --all-targets -- -D warnings
+          cargo test --locked
       - name: Install license and signature verifiers
         run: pwsh -NoProfile -File scripts/install-release-tools.ps1
       - name: Collect licenses
@@ -93,47 +66,34 @@ jobs:
         run: pwsh -NoProfile -File scripts/build-upgrade-baseline.ps1
       - name: Build final installer
         shell: pwsh
-        env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          SIGNING_AVAILABLE: ${{ steps.signing.outputs.available }}
         run: |
           ./scripts/build-release-installer.ps1
       - name: Verify fresh install and native download
         shell: pwsh
         run: |
-          $arguments = @{ VerifyLicenses=$true; RunNativeSmoke=$true }
-          if ($env:YTDL_SIGNER_THUMBPRINT) { $arguments.ExpectedSignerThumbprint=$env:YTDL_SIGNER_THUMBPRINT }
-          & ./scripts/verify-windows-msi-install.ps1 @arguments
+          & ./scripts/verify-windows-msi-install.ps1 -VerifyLicenses -RunNativeSmoke
           Copy-Item -LiteralPath "$env:RUNNER_TEMP/ytdl-flow-install-trust/result.json" -Destination "$env:RUNNER_TEMP/ytdl-flow-install-trust/fresh-install.json"
       - name: Verify synthetic upgrade and native download
         shell: pwsh
         run: |
-          $arguments = @{ VerifyLicenses=$true; RunNativeSmoke=$true; PreviousMsi="$env:RUNNER_TEMP/ytdl-upgrade-baseline.msi"; BaselineKind='synthetic' }
-          if ($env:YTDL_SIGNER_THUMBPRINT) { $arguments.ExpectedSignerThumbprint=$env:YTDL_SIGNER_THUMBPRINT }
-          & ./scripts/verify-windows-msi-install.ps1 @arguments
-      - name: Verify installer and updater signatures
-        if: steps.signing.outputs.available == 'true'
+          & ./scripts/verify-windows-msi-install.ps1 -VerifyLicenses -RunNativeSmoke -PreviousMsi "$env:RUNNER_TEMP/ytdl-upgrade-baseline.msi" -BaselineKind synthetic
+      - name: Record unsigned installer
         shell: pwsh
         run: |
           $files = @(Get-ChildItem src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi -Filter '*.msi' -File)
-          if ($files.Count -ne 1) { throw 'Expected exactly one signed installer' }
-          ./scripts/verify-release-signatures.ps1 -MsiPath $files[0].FullName -ReportPath "$env:RUNNER_TEMP/ytdl-flow-install-trust/signature.json"
+          if ($files.Count -ne 1) { throw 'Expected exactly one final installer' }
+          if ((Get-AuthenticodeSignature -LiteralPath $files[0].FullName).Status -ne 'NotSigned') { throw 'Expected unsigned manual installer' }
+          @{ status='unsigned'; msiSha256=(Get-FileHash -LiteralPath $files[0].FullName -Algorithm SHA256).Hash.ToLowerInvariant(); updaterVerified=$false; authenticodeVerified=$false } | ConvertTo-Json | Set-Content -LiteralPath "$env:RUNNER_TEMP/ytdl-flow-install-trust/signature.json"
       - name: Prepare verified release files
-        if: github.ref_type == 'tag' || inputs.prepare_release == true
+        if: github.ref_type == 'tag' || inputs.publish_release == true
         run: bun scripts/prepare-verified-release.mjs
-      - name: Create draft release
-        if: github.ref_type == 'tag' || inputs.prepare_release == true
-        shell: pwsh
+      - name: Publish installer release
+        if: success() && (github.ref_type == 'tag' || inputs.publish_release == true)
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
-          $files = @(Get-ChildItem "$env:RUNNER_TEMP/verified-release" -File | ForEach-Object FullName)
-          gh release create "v$version" @files --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --draft --title "YTDL-Flow $version" --notes-file docs/RELEASE_INSTALLER_NOTES.md
-          if ($LASTEXITCODE -ne 0) { throw 'Draft release upload failed' }
+        run: bun scripts/publish-installer-release.mjs
       - name: Upload validation installer
-        if: success() && github.event_name == 'workflow_dispatch' && inputs.prepare_release != true
+        if: success() && github.event_name == 'workflow_dispatch' && inputs.publish_release != true
         uses: actions/upload-artifact@v4
         with:
           name: validation-installer
@@ -149,23 +109,3 @@ jobs:
             ${{ runner.temp }}/ytdl-flow-install-trust/*.json
             ${{ runner.temp }}/ytdl-flow-install-trust/*.log
           if-no-files-found: warn
-
-  publish-draft:
-    if: github.event_name == 'workflow_dispatch' && inputs.publish_release == true
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    env:
-      GH_TOKEN: ${{ github.token }}
-      RELEASE_TAG: ${{ inputs.release_tag }}
-      INSTALLER_SHA256: ${{ inputs.installer_sha256 }}
-      HUMAN_VERIFIED: ${{ inputs.human_verified }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: 1.4.2
-      - name: Publish accepted draft
-        run: bun scripts/publish-verified-draft.mjs

@@ -20,8 +20,10 @@ describe('app self-update wiring', () => {
     expect(capabilitiesSource).toMatch(/"process:default"/);
   });
 
-  it('points the updater at signed GitHub release artifacts', () => {
-    expect(tauriConf).toMatch(/"createUpdaterArtifacts":\s*true/);
+  it('disables app self-update for unsigned manual installers', () => {
+    expect(tauriConf).toMatch(/"createUpdaterArtifacts":\s*false/);
+    expect(readFileSync(resolve('src/constants.ts'), 'utf8')).toMatch(/APP_SELF_UPDATE_ENABLED = false/);
+    expect(settingsSource).toMatch(/v-if="APP_SELF_UPDATE_ENABLED"/);
     expect(JSON.parse(tauriConf).plugins.updater.endpoints).toEqual([
       'https://github.com/zhaoteng45/YTDL-Flow-public/releases/latest/download/latest.json',
     ]);
@@ -54,7 +56,9 @@ describe('app self-update wiring', () => {
     }
   });
 
-  it('signs release artifacts in CI', () => {
-    expect(workflowSource).toMatch(/TAURI_SIGNING_PRIVATE_KEY:\s*\$\{\{\s*secrets\.TAURI_SIGNING_PRIVATE_KEY\s*\}\}/);
+  it('records unsigned status and publishes tested manual installers', () => {
+    expect(workflowSource).not.toContain('secrets.TAURI_SIGNING_PRIVATE_KEY');
+    expect(workflowSource).toContain("status='unsigned'");
+    expect(workflowSource).toContain('Publish installer release');
   });
 });

@@ -298,7 +298,8 @@ async function validate(locale: Locale, theme: string, width: number) {
       store.inspectToolHealth = async () => ({ state: 'ready', zombieCount: 0 });
       host.querySelector<HTMLButtonElement>('.zombie-check-area button')?.click();
       await settle();
-      check(locale, theme, width, host.querySelectorAll('.settings-tool-row').length === 4, `${label}: four flat tool rows render`);
+      check(locale, theme, width, host.querySelectorAll('.settings-tool-row').length === 3, `${label}: three runtime tool rows render`);
+      check(locale, theme, width, host.querySelector('.app-tool-row') === null, `${label}: unsigned installer hides app self-update`);
       check(locale, theme, width, host.querySelectorAll('.tool-card').length === 0, `${label}: no nested tool cards render`);
       for (const row of host.querySelectorAll<HTMLElement>('.settings-tool-row')) {
         check(locale, theme, width, noHorizontalOverflow(row), `${label}: tool row no horizontal overflow`);

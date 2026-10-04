@@ -82,4 +82,4 @@ const manifest = writeLicenseManifest(output, {
   runtimeReviewComplete: pending.length === 0,
 });
 console.log(`Collected ${npm.length} NPM packages, ${rustCount} app and ${botCount} botguard license texts; ${manifest.files.length} files.`);
-if (pending.length) console.log(`PUBLICATION BLOCKED: runtime source review remains incomplete for ${pending.map((item) => item.name).join(', ')}`);
+if (pending.length) console.log(`Runtime source review pending for ${pending.map((item) => item.name).join(', ')}; recorded in runtime-source-review.json`);

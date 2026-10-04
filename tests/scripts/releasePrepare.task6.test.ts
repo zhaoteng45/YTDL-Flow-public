@@ -32,17 +32,22 @@ describe('release preparation contract for task 6', () => {
     expect(ciConfig.jobs['desktop-packaging-smoke'].steps.some((step: { uses?: string }) => step.uses?.startsWith('actions/upload-artifact'))).toBe(false);
   });
 
-  it('publishes the accepted draft without rebuilding or replacing its assets', () => {
+  it('publishes tested tag builds automatically without signing or human inputs', () => {
     const inputs = releaseConfig.on.workflow_dispatch.inputs;
-    expect(inputs.publish_release).toMatchObject({ type: 'boolean', default: false });
-    expect(inputs.human_verified).toMatchObject({ type: 'boolean', default: false });
-    expect(releaseConfig.jobs['verify-installer'].if).toBe('inputs.publish_release != true');
-    const publish = releaseConfig.jobs['publish-draft'];
-    expect(publish.if).toBe("github.event_name == 'workflow_dispatch' && inputs.publish_release == true");
-    expect(publish.env.HUMAN_VERIFIED).toContain('inputs.human_verified');
-    expect(publish.env.INSTALLER_SHA256).toContain('inputs.installer_sha256');
-    expect(publish.steps.at(-1).run).toBe('bun scripts/publish-verified-draft.mjs');
-    expect(publish.steps.some((step: { name?: string }) => step.name === 'Build final installer')).toBe(false);
+    expect(inputs.human_verified).toBeUndefined();
+    const steps = releaseConfig.jobs['verify-installer'].steps;
+    const publish = steps.find((step: { name?: string }) => step.name === 'Publish installer release');
+    expect(publish.if).toBe("success() && (github.ref_type == 'tag' || inputs.publish_release == true)");
+    expect(publish.run).toContain('bun scripts/publish-installer-release.mjs');
+    expect(steps.indexOf(publish)).toBeGreaterThan(steps.findIndex((step: { name?: string }) => step.name === 'Prepare verified release files'));
+    expect(releaseWorkflow).not.toContain('Check signing credentials');
+    expect(releaseConfig.jobs['publish-draft']).toBeUndefined();
+    expect(releaseConfig.concurrency.group).toBe('installer-release');
+    expect(releaseConfig.concurrency['cancel-in-progress']).toBe(false);
+    for (const name of ['Check source', 'Check Rust']) {
+      const step = steps.find((item: { name?: string }) => item.name === name);
+      expect(step.run).toContain('$PSNativeCommandUseErrorActionPreference = $true');
+    }
   });
 
   it('keeps help non-destructive and validates git context explicitly', () => {

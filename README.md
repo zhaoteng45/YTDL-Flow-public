@@ -22,7 +22,9 @@ YTDL-Flow 为 yt-dlp 和 FFmpeg 提供桌面界面。粘贴链接，选择格式
 
 ## 下载
 
-版本说明见 [Releases](https://github.com/zhaoteng45/YTDL-Flow-public/releases)。目前提供源码下载，Windows 安装包尚未发布。
+在 [Releases 最新版本](https://github.com/zhaoteng45/YTDL-Flow-public/releases/latest) 下载 Windows x64 的 `.msi` 安装包，运行即可安装。更新时下载新版本安装包覆盖安装。
+
+安装包未使用代码签名，Windows 可能显示“未知发布者”提示。当前不提供应用内自动更新；发行页附有文件校验值和测试记录。随包运行工具的源码资料核查进度见 [第三方声明](THIRD_PARTY_NOTICES.md)。
 
 当前在 Windows 11 x64 上开发和测试。Windows 10、macOS 和 Linux 尚未验证。
 
@@ -101,7 +103,7 @@ Website availability depends on yt-dlp, site restrictions, and your login state.
 
 ### Downloads
 
-See [Releases](https://github.com/zhaoteng45/YTDL-Flow-public/releases) for version notes and source archives. Windows installers are not available yet. Development and testing currently use Windows 11 x64; Windows 10, macOS, and Linux have not been verified.
+Download the Windows x64 `.msi` from the [latest Release](https://github.com/zhaoteng45/YTDL-Flow-public/releases/latest). Install a newer MSI to update. Installers are unsigned and Windows may show an unknown publisher prompt. In-app updates are disabled. Each release includes checksums and automated test records; runtime source review remains incomplete, as described in [third-party notices](THIRD_PARTY_NOTICES.md). Development and testing currently use Windows 11 x64; Windows 10, macOS, and Linux have not been verified.
 
 ### Development
 

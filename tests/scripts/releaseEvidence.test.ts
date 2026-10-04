@@ -44,5 +44,10 @@ describe('final installer release evidence', () => {
     evidence.signature.updaterVerified = true;
     evidence.licenses.runtimeReviewComplete = false;
     expect(() => assertReleaseEvidence(evidence)).toThrow(/runtime license/);
+    const manual = { ...evidence, signature: { status: 'unsigned', msiSha256: evidence.installerSha256, updaterVerified: false, authenticodeVerified: false } };
+    expect(() => assertReleaseEvidence(manual, { signed: false })).not.toThrow();
+    expect(() => assertReleaseEvidence({ ...manual, install: { ...manual.install, status: 'failed' } }, { signed: false })).toThrow(/Installed/);
+    expect(() => assertReleaseEvidence({ ...manual, licenses: { ...manual.licenses, sourceCommit: 'c'.repeat(40) } }, { signed: false })).toThrow(/License inventory/);
+    expect(() => assertReleaseEvidence({ ...manual, signature: { ...manual.signature, status: 'passed' } }, { signed: false })).toThrow(/unsigned/);
   });
 });

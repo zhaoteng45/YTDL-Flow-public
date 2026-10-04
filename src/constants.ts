@@ -1,5 +1,7 @@
 import type { ExtraArgs } from './types';
 
+export const APP_SELF_UPDATE_ENABLED = false;
+
 export const THEMES = {
   // Keep the historical value for persisted-setting compatibility.
   COBALT_BUTTER: 'cobalt-butter',

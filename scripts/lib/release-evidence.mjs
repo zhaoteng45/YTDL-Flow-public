@@ -49,7 +49,7 @@ export function verifyLicenseBundle(root) {
   return manifest;
 }
 
-export function assertReleaseEvidence(evidence) {
+export function assertReleaseEvidence(evidence, { signed = true } = {}) {
   if (!/^[a-f0-9]{64}$/.test(evidence.installerSha256) || !/^[a-f0-9]{40}$/.test(evidence.sourceCommit)) {
     throw new Error('Invalid release identity');
   }
@@ -74,12 +74,15 @@ export function assertReleaseEvidence(evidence) {
       evidence.install.licenses !== 'passed' || evidence.install.upgrade !== 'passed') {
     throw new Error('Installed application verification did not pass');
   }
-  if (evidence.signature.status !== 'passed' || !evidence.signature.updaterVerified || !evidence.signature.authenticodeVerified) {
+  if (signed && (evidence.signature.status !== 'passed' || !evidence.signature.updaterVerified || !evidence.signature.authenticodeVerified)) {
     throw new Error('Release signature verification did not pass');
+  }
+  if (!signed && (evidence.signature.status !== 'unsigned' || evidence.signature.updaterVerified !== false || evidence.signature.authenticodeVerified !== false)) {
+    throw new Error('Manual installer release must explicitly record unsigned status');
   }
   if (evidence.licenses.version !== evidence.version || evidence.licenses.sourceCommit !== evidence.sourceCommit) {
     throw new Error('License inventory belongs to a different build');
   }
-  if (evidence.licenses.runtimeReviewComplete !== true) throw new Error('Bundled runtime license/source review is incomplete');
+  if (signed && evidence.licenses.runtimeReviewComplete !== true) throw new Error('Bundled runtime license/source review is incomplete');
   return evidence;
 }

@@ -3,6 +3,7 @@ import { toRefs, ref, watch, reactive, computed, nextTick, onMounted, onUnmounte
 import { useClipboard } from '@vueuse/core';
 import { useI18n } from 'vue-i18n';
 import { useAppStore } from '../stores/appStore';
+import { APP_SELF_UPDATE_ENABLED } from '../constants';
 
 import QRCode from 'qrcode';
 import NeoIcon from './NeoIcon.vue';
@@ -1281,7 +1282,7 @@ const handleUASelect = (e: Event) => {
             <!-- Tab: Tools (App, Toolchain & System Health) -->
             <div v-if="activeTab === 'tools'" class="tab-pane fade-in" role="tabpanel" aria-labelledby="settings-tab-tools">
                 <!-- App Self-Update -->
-                <div class="setting-group">
+                <div v-if="APP_SELF_UPDATE_ENABLED" class="setting-group">
                     <h4>{{ t('settings.app_update.title') }}</h4>
                     <div class="settings-tool-row app-tool-row">
                         <div class="tool-header">
