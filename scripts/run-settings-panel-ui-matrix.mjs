@@ -4,7 +4,8 @@ await runUiMatrix({
   harnessPath: '/tests/ui/settings-panel-state-matrix.html',
   resultGlobal: '__YTDL_SETTINGS_UI_MATRIX__',
   outDirName: 'settings-panel-ui-matrix',
-  screenshotName: 'final-petrol-720.png',
+  screenshotName: 'settings-720.png',
+  captureFunction: '__YTDL_SETTINGS_CAPTURE__',
   timeoutMs: 120000,
   ...(process.argv.includes('--capture-themes') ? {
     outDirName: 'native-ui-round-three-settings',

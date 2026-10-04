@@ -25,7 +25,7 @@ async function run() {
     id: 'qa-attempt', rowId: 'qa-console', url: 'https://example.com/video',
     status: 'downloading', progress: 42, cancelRequested: false,
     title: '日志验收示例 · Console verification',
-    metadata: { title: '日志验收示例 · Console verification', url: 'https://example.com/video', filename: 'console-check.mp4' },
+    metadata: { title: '日志验收示例 · Console verification', url: 'https://example.com/video', filename: 'console-check.mp4', thumbnail: '', duration: '100', channel: 'QA' },
     // 160 synthetic lines intentionally exceed the 340px console viewport.
     logs: Array.from({ length: 160 }, (_, index) => `[12:03:${String(index % 60).padStart(2, '0')}.125] [download] ${index % 5 === 0 ? 'WARNING: ' : ''}segment ${index + 1} token=QA_SYNTHETIC_SECRET`),
     debugCommand: 'yt-dlp https://example.com/video?token=QA_SYNTHETIC_SECRET',

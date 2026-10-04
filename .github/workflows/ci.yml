@@ -56,8 +56,14 @@ jobs:
       - name: Lint
         run: bun run lint
 
+      - name: Public repository contents
+        run: bun run check:repository
+
       - name: Type Check
         run: bun run typecheck
+
+      - name: Browser harness Type Check
+        run: bun run typecheck:ui
 
       - name: Test
         run: bun run test

@@ -18,10 +18,8 @@
     "dev-port": "bun scripts/dev-port.mjs",
     "cleanup": "bun scripts/cleanup.mjs",
     "dev": "bun run setup-sidecars && bun run frontend:dev",
-    "agent:check": "bun scripts/check-agent-context.mjs",
     "check:versions": "bun scripts/check-versions.mjs",
-    "verify:fast": "bun run --parallel --no-exit-on-error agent:check typecheck lint check:versions",
-    "agent:jev": "bun --no-env-file scripts/agent-jev-gate.mjs",
+    "verify:fast": "bun run --parallel --no-exit-on-error typecheck typecheck:ui lint check:versions check:repository",
     "build": "bun scripts/build.mjs",
     "build:web": "bun --bun vite build",
     "typecheck": "vue-tsc --noEmit",
@@ -44,9 +42,10 @@
     "biome:check": "biome check .",
     "tauri:dev": "bun run dev-port && tauri dev",
     "tauri:build": "bun scripts/tauri-build.mjs",
-    "agent:jev:test": "bun test tests/agents/jev-gate.test.mjs",
     "test:ui-geometry": "bun scripts/run-app-shell-geometry.mjs",
-    "test:ui-logs": "bun scripts/run-log-console-audit.mjs"
+    "test:ui-logs": "bun scripts/run-log-console-audit.mjs",
+    "typecheck:ui": "vue-tsc --noEmit -p tsconfig.ui.json",
+    "check:repository": "bun scripts/check-repository-content.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.12.0",

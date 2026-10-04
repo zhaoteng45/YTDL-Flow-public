@@ -60,6 +60,8 @@ bun run dev
 ```bash
 bun run lint
 bun run typecheck
+bun run typecheck:ui
+bun run check:repository
 bun run test
 bun run test:packages
 bun run build:web

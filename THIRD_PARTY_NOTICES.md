@@ -2,20 +2,6 @@
 
 根目录 [LICENSE](LICENSE) 适用于 YTDL-Flow 原创源码，不替代第三方作品的许可证。第三方文件的原有版权声明、许可证和 NOTICE 应随再分发保留。
 
-## 仓库内的开发技能
-
-具体技能与来源以 [skills-lock.json](skills-lock.json) 为准。本次补充的上游许可证保存在 `third-party/licenses/`；[provenance.json](third-party/licenses/provenance.json) 记录取件提交、URL 与 SHA256。该记录标识许可证文本的来源，不表示已验证所有技能文件与当前上游逐字相同。
-
-| 来源 | 许可证 | 本地声明 |
-| --- | --- | --- |
-| [emilkowalski/skills](https://github.com/emilkowalski/skills) | MIT | [LICENSE](third-party/licenses/emilkowalski-skills-LICENSE) |
-| [mattpocock/skills](https://github.com/mattpocock/skills) | MIT | [LICENSE](third-party/licenses/mattpocock-skills-LICENSE) |
-| [ayghri/i-have-adhd](https://github.com/ayghri/i-have-adhd) | MIT | [LICENSE](third-party/licenses/i-have-adhd-LICENSE) |
-| [pbakaus/impeccable](https://github.com/pbakaus/impeccable) | Apache-2.0 | [LICENSE](third-party/licenses/impeccable-LICENSE)、[NOTICE](third-party/licenses/impeccable-NOTICE.md)；本地描述与配置有适配 |
-| [nextlevelbuilder/ui-ux-pro-max-skill](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill) | MIT | [LICENSE](third-party/licenses/ui-ux-pro-max-LICENSE) |
-| [typesafe-ai/skills](https://github.com/typesafe-ai/skills) | MIT | [LICENSE](.agents/skills/typesafe-ai/LICENSE) |
-| [tt-a1i/simplify-codebase](https://github.com/tt-a1i/simplify-codebase) | MIT；附带作品另有声明 | [LICENSE](.agents/skills/simplify-codebase/LICENSE)、[visualization/NOTICE](.agents/skills/simplify-codebase/visualization/NOTICE.md) |
-
 ## 随包工具
 
 版本、下载源及下载校验以 [toolchain-manifest.json](src-tauri/toolchain-manifest.json) 为准。

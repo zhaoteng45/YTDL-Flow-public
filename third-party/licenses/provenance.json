@@ -1,47 +1,5 @@
 [
   {
-    "source": "emilkowalski/skills",
-    "commit": "e8a175de22ae1e49370fc144c1f3bb9aeedf988d",
-    "file": "third-party/licenses/emilkowalski-skills-LICENSE",
-    "url": "https://raw.githubusercontent.com/emilkowalski/skills/e8a175de22ae1e49370fc144c1f3bb9aeedf988d/LICENSE",
-    "sha256": "4FF5BDB7887EC1435C9CAB0E8D1A7CAEE704D894D65C2A008CCC68B1CC2F260B"
-  },
-  {
-    "source": "mattpocock/skills",
-    "commit": "d81f3a183412e71a5b1e84ca21bc1a35eea03a60",
-    "file": "third-party/licenses/mattpocock-skills-LICENSE",
-    "url": "https://raw.githubusercontent.com/mattpocock/skills/d81f3a183412e71a5b1e84ca21bc1a35eea03a60/LICENSE",
-    "sha256": "0E7AC423BF2C6E223B7C5B156F8CF72DA49D748E56A1641402C31F22AD07DBB5"
-  },
-  {
-    "source": "ayghri/i-have-adhd",
-    "commit": "839872f9d1cd634fed642b4589ce7226199cc15f",
-    "file": "third-party/licenses/i-have-adhd-LICENSE",
-    "url": "https://raw.githubusercontent.com/ayghri/i-have-adhd/839872f9d1cd634fed642b4589ce7226199cc15f/LICENSE",
-    "sha256": "8ACBB618089B738404F76AC60FCA1AAA995D9A87995EDDF95F0B777ACD7F7D2C"
-  },
-  {
-    "source": "pbakaus/impeccable",
-    "commit": "e103efe779e2dd01274dabae83531fef00bf2563",
-    "file": "third-party/licenses/impeccable-LICENSE",
-    "url": "https://raw.githubusercontent.com/pbakaus/impeccable/e103efe779e2dd01274dabae83531fef00bf2563/LICENSE",
-    "sha256": "02BB8C3B4E70190E3986C0404AD2FD8D639B4F534252D82379CC1B502B6D1812"
-  },
-  {
-    "source": "pbakaus/impeccable",
-    "commit": "e103efe779e2dd01274dabae83531fef00bf2563",
-    "file": "third-party/licenses/impeccable-NOTICE.md",
-    "url": "https://raw.githubusercontent.com/pbakaus/impeccable/e103efe779e2dd01274dabae83531fef00bf2563/NOTICE.md",
-    "sha256": "C60A093C2845FD9FB82F9C6F742ECE31F379F8190B535309D32D66C45CCFFDCB"
-  },
-  {
-    "source": "nextlevelbuilder/ui-ux-pro-max-skill",
-    "commit": "09170eec67eefd46a7ae85de61b40c194020f997",
-    "file": "third-party/licenses/ui-ux-pro-max-LICENSE",
-    "url": "https://raw.githubusercontent.com/nextlevelbuilder/ui-ux-pro-max-skill/09170eec67eefd46a7ae85de61b40c194020f997/LICENSE",
-    "sha256": "738F69DFA83DB5C347C678FB9D90E560877059F0DE93A327C39001BFF92DC014"
-  },
-  {
     "source": "rustypipe-botguard",
     "version": "0.1.2",
     "file": "third-party/licenses/rustypipe-botguard-0.1.2-LICENSE",

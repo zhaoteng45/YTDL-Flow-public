@@ -18,7 +18,7 @@ const check = (ok: boolean, label: string) => { total++; if (!ok) failures.push(
 const row = (rowId: string, status: TaskPresentationRow['status'], orderKey = 0,
   failureKind?: TaskPresentationRow['failureKind'], errorMsg?: string): TaskPresentationRow => ({
   id: rowId, rowId, status, orderKey, failureKind, errorMsg, url: `https://example.com/${rowId}`,
-  title: rowId, progress: 0, logs: [], actions: resolveCurrentTaskActions({ status, failureKind }),
+  title: rowId, cancelRequested: false, progress: 0, logs: [], actions: resolveCurrentTaskActions({ status, failureKind }),
 });
 const items = [row('running', 'downloading'), row('third', 'queued', 30),
   row('parse', 'error', 0, 'analysis'), row('first', 'queued', 10), row('ready', 'analyzed'),
@@ -32,12 +32,13 @@ items.push({ ...row('subtitle', 'completed'), logs: ['[Subtitle] failed; retryin
 const originalMedia = window.matchMedia;
 const originalScroll = Element.prototype.scrollIntoView;
 let reduced = false;
-let lastScroll: ScrollIntoViewOptions | undefined;
+const scrolling: { last?: ScrollIntoViewOptions } = {};
+const lastScroll = (): ScrollIntoViewOptions | undefined => scrolling.last;
 window.matchMedia = (query) => query === '(prefers-reduced-motion: reduce)'
   ? { ...originalMedia.call(window, query), matches: reduced } as MediaQueryList
   : originalMedia.call(window, query);
 Element.prototype.scrollIntoView = function (options) {
-  lastScroll = typeof options === 'object' ? options : undefined;
+  scrolling.last = typeof options === 'object' ? options : undefined;
 };
 try {
   for (const theme of Object.values(THEMES)) for (const locale of ['zh-CN', 'en-US'] as const) {
@@ -88,10 +89,10 @@ try {
       check(badge(id, '.task-status-badge') === labels[index], `${prefix} ${id} label`));
     search.blur();
     for (const reduce of [false, true]) {
-      reduced = reduce; lastScroll = undefined;
+      reduced = reduce; scrolling.last = undefined;
       window.dispatchEvent(new KeyboardEvent('keydown', { key: 'j', bubbles: true, cancelable: true }));
       await nextTick();
-      check(lastScroll?.behavior === (reduce ? 'auto' : 'smooth'), `${prefix} reduced=${reduce} scrolling`);
+      check(lastScroll()?.behavior === (reduce ? 'auto' : 'smooth'), `${prefix} reduced=${reduce} scrolling`);
     }
     const selected = () => host.querySelector('.is-card-focused')?.getAttribute('data-row-id');
     const previous = selected();
@@ -100,10 +101,10 @@ try {
       if (tag === 'div') control.setAttribute('role', 'combobox');
       document.body.append(control); control.focus();
       for (const key of ['j', 'k', ' ', 'Delete', 'ArrowDown', 'Escape']) {
-        lastScroll = undefined;
+        scrolling.last = undefined;
         control.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
         await nextTick();
-        check(selected() === previous && lastScroll === undefined && host.querySelectorAll('.download-card').length === items.length,
+        check(selected() === previous && scrolling.last === undefined && host.querySelectorAll('.download-card').length === items.length,
           `${prefix} ${tag} isolates ${key}`);
       }
       control.remove();

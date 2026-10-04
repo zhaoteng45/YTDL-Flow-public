@@ -45,9 +45,11 @@ declare global {
   }
 }
 
-const host = document.querySelector<HTMLElement>('#app');
-const report = document.querySelector<HTMLElement>('#qa-results');
-if (!host || !report) throw new Error('QA host missing');
+const hostElement = document.querySelector<HTMLElement>('#app');
+const reportElement = document.querySelector<HTMLElement>('#qa-results');
+if (!hostElement || !reportElement) throw new Error('QA host missing');
+const host = hostElement;
+const report = reportElement;
 
 document.body.style.margin = '0';
 document.body.style.padding = '12px';
@@ -248,7 +250,7 @@ async function mount(locale: Locale, rows: readonly TaskPresentationRow[] = scen
   app = createApp({
     render: () =>
       h(DownloadList, {
-        items: rows,
+        items: [...rows],
         adminMode: false,
         maxConcurrency: 1,
         onDownload: (payload: { rowId?: string; format?: string }) => events.push(payload),

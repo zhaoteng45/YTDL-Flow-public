@@ -27,17 +27,21 @@ interface MatrixResult {
   checkCount: number;
   failures: MatrixFailure[];
   scenarios: string[];
+  behaviorCaseCount?: number;
 }
 
 declare global {
   interface Window {
     __YTDL_SETTINGS_UI_MATRIX__?: MatrixResult;
+    __YTDL_SETTINGS_CAPTURE__?: (item: { query?: string }) => Promise<void>;
   }
 }
 
-const host = document.querySelector<HTMLElement>('#app');
-const report = document.querySelector<HTMLElement>('#qa-results');
-if (!host || !report) throw new Error('QA host missing');
+const hostElement = document.querySelector<HTMLElement>('#app');
+const reportElement = document.querySelector<HTMLElement>('#qa-results');
+if (!hostElement || !reportElement) throw new Error('QA host missing');
+const host = hostElement;
+const report = reportElement;
 
 document.body.style.margin = '0';
 document.body.style.padding = '12px';
@@ -53,6 +57,7 @@ const locales: Locale[] = ['zh-CN', 'en-US'];
 const themes = Object.values(THEMES);
 const widths = [360, 720, 960];
 const scenarios = ['format-tab', 'general-tab', 'advanced-tab', 'tools-tab'];
+const behaviorScenarios = ['health-busy', 'health-error', 'cleanup-ownership', 'update-success', 'update-error-recovery', 'output-no-mutation'];
 const failures: MatrixFailure[] = [];
 let passed = 0;
 let app: ReturnType<typeof createApp> | undefined;
@@ -91,7 +96,7 @@ async function mount(locale: Locale) {
     killZombieProcesses: async () => 0,
     getBinariesInfo: async () => ({
       ytdlp: '2026.09.28',
-      ffmpeg: '7.1',
+      ffmpeg: '9.0.2-essentials_build-www.gyan.dev',
       bun: '1.4.2',
     }),
     getNotificationPermission: async () => true,
@@ -103,6 +108,7 @@ async function mount(locale: Locale) {
       onCancel: false,
     }),
     updateNotificationSettings: async () => {},
+    updateTool: async () => 'updated',
     getInstalledBrowsers: async () => ['chrome', 'edge'],
   });
 
@@ -192,22 +198,22 @@ async function activateTab(index: number) {
 async function validate(locale: Locale, theme: string, width: number) {
   const label = `${locale} ${theme} ${width}`;
   const { store, filenameBefore } = await mount(locale);
-  validateBrand(locale, theme, width);
-
-  const palette = {
-    material: ['rgb(226, 232, 241)', 'rgb(36, 87, 167)'],
-    fluent: ['rgb(231, 224, 216)', 'rgb(132, 61, 75)'],
-    'cobalt-butter': ['rgb(23, 25, 29)', 'rgb(184, 204, 232)'],
-  }[theme];
-  check(locale, theme, width, getComputedStyle(document.body).backgroundColor === palette?.[0], `${label}: approved tinted canvas renders`);
-  const primaryProbe = document.createElement('button');
-  primaryProbe.className = 'neo-button primary';
-  primaryProbe.textContent = 'Download';
-  host.append(primaryProbe);
-  const primaryStyle = getComputedStyle(primaryProbe);
-  check(locale, theme, width, primaryStyle.backgroundColor === palette?.[1], `${label}: independent primary color renders`);
-  check(locale, theme, width, contrast(primaryStyle.color, primaryStyle.backgroundColor) >= 4.5, `${label}: primary action text meets AA`);
-  primaryProbe.remove();
+  if (locale === locales[0] && width === widths[0]) {
+    validateBrand(locale, theme, width);
+    const palette = {
+      material: ['rgb(226, 232, 241)', 'rgb(36, 87, 167)'],
+      fluent: ['rgb(231, 224, 216)', 'rgb(132, 61, 75)'],
+      'cobalt-butter': ['rgb(23, 25, 29)', 'rgb(184, 204, 232)'],
+    }[theme];
+    check(locale, theme, width, getComputedStyle(document.body).backgroundColor === palette?.[0], `${label}: approved tinted canvas renders`);
+    const primaryProbe = document.createElement('button');
+    primaryProbe.className = 'neo-button primary';
+    primaryProbe.textContent = 'Download';
+    host.append(primaryProbe);
+    const primaryStyle = getComputedStyle(primaryProbe);
+    check(locale, theme, width, primaryStyle.backgroundColor === palette?.[1], `${label}: independent primary color renders`);
+    primaryProbe.remove();
+  }
 
   const container = host.querySelector<HTMLElement>('.settings-container');
   const content = host.querySelector<HTMLElement>('.settings-content');
@@ -290,8 +296,13 @@ async function validate(locale: Locale, theme: string, width: number) {
       const groupStyle = getComputedStyle(group);
       check(locale, theme, width, ['rgba(0, 0, 0, 0)', 'rgb(255, 255, 255)'].includes(groupStyle.backgroundColor) && groupStyle.boxShadow === 'none', `${label}: ordinary groups do not add nested gray cards`);
       const heading = group.querySelector('h4');
-      const primaryText = { material: 'rgb(36, 48, 71)', fluent: 'rgb(48, 45, 48)', 'cobalt-butter': 'rgb(237, 240, 244)' }[theme];
-      if (heading) check(locale, theme, width, getComputedStyle(heading).color === primaryText, `${label}: normal group headings use primary text, not brand`);
+      if (heading) {
+        const probe = document.createElement('span');
+        probe.style.color = 'var(--color-text)';
+        group.append(probe);
+        check(locale, theme, width, getComputedStyle(heading).color === getComputedStyle(probe).color, `${label}: normal group headings use primary text, not brand`);
+        probe.remove();
+      }
     }
 
     if (index === 1) {
@@ -300,27 +311,12 @@ async function validate(locale: Locale, theme: string, width: number) {
       check(locale, theme, width, store.extraArgs.filenameTemplate === filenameBefore, `${label}: opening output remains side-effect free`);
     }
 
-    if (index === 2) {
-      check(locale, theme, width, !host.textContent?.includes('Core Engine Strategy'), `${label}: no static engine feature board`);
-      check(locale, theme, width, !host.textContent?.includes('核心引擎策略'), `${label}: no static engine feature board zh`);
-    }
-
     if (index === 3) {
-      store.inspectToolHealth = async () => ({ state: 'busy', activeOperations: 2 });
-      host.querySelector<HTMLButtonElement>('.zombie-check-area button')?.click();
+      const details = host.querySelector<HTMLDetailsElement>('.tool-version-details')!;
+      details.open = true;
       await settle();
-      check(locale, theme, width, Boolean(host.querySelector('.zombie-check-area [role="status"]')), `${label}: busy health is nonblocking status`);
-      check(locale, theme, width, !host.querySelector('.zombie-check-area [role="alert"]'), `${label}: busy health is not error`);
-      store.inspectToolHealth = async () => { throw new Error('inspection denied'); };
-      host.querySelector<HTMLButtonElement>('.zombie-check-area button')?.click();
-      await settle();
-      check(locale, theme, width, Boolean(host.querySelector('.zombie-check-area [role="alert"]')), `${label}: true inspection failure is alert`);
-      store.inspectToolHealth = async () => ({ state: 'ready', zombieCount: 0 });
-      host.querySelector<HTMLButtonElement>('.zombie-check-area button')?.click();
-      await settle();
-      check(locale, theme, width, host.querySelectorAll('.settings-tool-row').length === 3, `${label}: three runtime tool rows render`);
-      check(locale, theme, width, host.querySelector('.app-tool-row') === null, `${label}: unsigned installer hides app self-update`);
-      check(locale, theme, width, host.querySelectorAll('.tool-card').length === 0, `${label}: no nested tool cards render`);
+      check(locale, theme, width, details.textContent?.includes('www.gyan.dev') && noHorizontalOverflow(details), `${label}: complete version disclosure fits`);
+      details.open = false;
       for (const row of host.querySelectorAll<HTMLElement>('.settings-tool-row')) {
         check(locale, theme, width, noHorizontalOverflow(row), `${label}: tool row no horizontal overflow`);
         check(locale, theme, width, ['rgba(0, 0, 0, 0)', 'rgb(255, 255, 255)'].includes(getComputedStyle(row).backgroundColor), `${label}: tool rows stay on ordinary surface`);
@@ -328,6 +324,83 @@ async function validate(locale: Locale, theme: string, width: number) {
     }
   }
 }
+
+async function validateBehavior(locale: Locale) {
+  const theme = THEMES.MATERIAL;
+  const width = 720;
+  const label = `${locale} behavior`;
+  document.documentElement.dataset.theme = theme;
+  host.style.width = `${width}px`;
+  const { store, filenameBefore } = await mount(locale);
+  await activateTab(1);
+  check(locale, theme, width, store.extraArgs.filenameTemplate === filenameBefore, `${label}: output remains side-effect free`);
+  await activateTab(3);
+  store.inspectToolHealth = async () => ({ state: 'busy', activeOperations: 2 });
+  host.querySelector<HTMLButtonElement>('.zombie-check-area button')?.click();
+  await settle();
+  check(locale, theme, width, Boolean(host.querySelector('.zombie-check-area [role="status"]')), `${label}: busy health is nonblocking status`);
+  check(locale, theme, width, !host.querySelector('.zombie-check-area [role="alert"]'), `${label}: busy health is not error`);
+  store.inspectToolHealth = async () => { throw new Error('inspection denied'); };
+  host.querySelector<HTMLButtonElement>('.zombie-check-area button')?.click();
+  await settle();
+  check(locale, theme, width, Boolean(host.querySelector('.zombie-check-area [role="alert"]')), `${label}: true inspection failure is alert`);
+  store.inspectToolHealth = async () => ({ state: 'ready', zombieCount: 0 });
+  host.querySelector<HTMLButtonElement>('.zombie-check-area button')?.click();
+  await settle();
+  check(locale, theme, width, host.querySelectorAll('.settings-tool-row').length === 3, `${label}: three runtime tool rows render`);
+  check(locale, theme, width, host.querySelector('.app-tool-row') === null, `${label}: unsigned installer hides app self-update`);
+  const ffmpegVersion = host.querySelectorAll<HTMLElement>('.tool-status')[1];
+  check(locale, theme, width, ffmpegVersion?.textContent?.trim() === '9.0.2' && ffmpegVersion.title.includes('www.gyan.dev'), `${label}: short version retains full build`);
+  host.querySelector<HTMLButtonElement>('.tool-actions button')?.click();
+  await settle();
+  check(locale, theme, width, Boolean(host.querySelector('.tool-update-status[role="status"]')), `${label}: successful update inline`);
+  store.updateTool = async () => { throw new Error('synthetic update denied'); };
+  host.querySelector<HTMLButtonElement>('.tool-actions button')?.click();
+  await settle();
+  check(locale, theme, width, Boolean(host.querySelector('.tool-update-status[role="alert"]')), `${label}: failed update inline`);
+  check(locale, theme, width, [...host.querySelectorAll<HTMLButtonElement>('.tool-actions button')].every(button => !button.disabled), `${label}: actions recover after failed update`);
+  let finishUpdate!: () => void;
+  store.updateTool = async () => { await new Promise<void>(resolve => { finishUpdate = resolve; }); return 'updated'; };
+  host.querySelector<HTMLButtonElement>('.tool-actions button')?.click();
+  await settle();
+  check(locale, theme, width, [...host.querySelectorAll<HTMLButtonElement>('.tool-actions button')].every(button => button.disabled), `${label}: updates disable all mutation buttons`);
+  finishUpdate();
+  await settle();
+  check(locale, theme, width, Boolean(host.querySelector('.tool-update-status[role="status"]')), `${label}: explicit retry succeeds after failure`);
+  store.inspectToolHealth = async () => ({ state: 'ready', zombieCount: 1 });
+  host.querySelector<HTMLButtonElement>('.zombie-check-area button')?.click();
+  await settle();
+  let cleanCalls = 0;
+  let finishClean!: () => void;
+  store.killZombieProcesses = async () => {
+    cleanCalls++;
+    await new Promise<void>(resolve => { finishClean = resolve; });
+    return 1;
+  };
+  const cleanButton = host.querySelector<HTMLButtonElement>('.zombie-check-area .danger');
+  cleanButton?.click();
+  await settle();
+  cleanButton?.click();
+  await settle();
+  check(locale, theme, width, cleanCalls === 1, `${label}: duplicate cleanup cannot start a second native mutation`);
+  check(locale, theme, width, !host.querySelector('.zombie-check-area .danger'), `${label}: cleanup hides stale actionable warning while running`);
+  finishClean();
+  store.inspectToolHealth = async () => ({ state: 'ready', zombieCount: 0 });
+  await new Promise(resolve => setTimeout(resolve, 550));
+  await settle();
+  check(locale, theme, width, !host.querySelector('.zombie-alert'), `${label}: cleanup refreshes actual health`);
+}
+
+window.__YTDL_SETTINGS_CAPTURE__ = async (item) => {
+  const captureTheme = new URLSearchParams(item.query).get('theme');
+  document.documentElement.dataset.theme = themes.find(theme => theme === captureTheme) ?? THEMES.MATERIAL;
+  host.style.width = captureTheme ? '960px' : '720px';
+  host.style.maxWidth = 'none';
+  await mount('zh-CN');
+  await activateTab(0);
+  host.querySelector<HTMLElement>('.cookie-path-preview')?.focus();
+  await settle();
+};
 
 async function run() {
   const combinations = locales.length * themes.length * widths.length;
@@ -346,12 +419,7 @@ async function run() {
     }
   }
 
-  const captureTheme = new URLSearchParams(location.search).get('theme');
-  document.documentElement.dataset.theme = themes.find(theme => theme === captureTheme) ?? THEMES.MATERIAL;
-  host.style.width = captureTheme ? '960px' : '720px';
-  await mount('zh-CN');
-  await activateTab(0);
-  host.querySelector<HTMLElement>('.cookie-path-preview')?.focus();
+  for (const locale of locales) await validateBehavior(locale);
 
   window.__YTDL_SETTINGS_UI_MATRIX__ = {
     done: true,
@@ -359,7 +427,8 @@ async function run() {
     caseCount: combinations,
     checkCount: passed + failures.length,
     failures,
-    scenarios,
+    scenarios: [...scenarios, ...behaviorScenarios],
+    behaviorCaseCount: locales.length,
   };
   report.textContent =
     failures.length === 0

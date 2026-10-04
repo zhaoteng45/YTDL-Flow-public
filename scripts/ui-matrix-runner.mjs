@@ -1,10 +1,51 @@
 import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { writeFile, rename } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 const root = process.cwd();
+
+export async function withMatrixReport(resultFile, execute) {
+  const runId = randomUUID();
+  const startedAt = new Date().toISOString();
+  const started = performance.now();
+  const publish = async report => {
+    const temporary = `${resultFile}.${runId}.tmp`;
+    await writeFile(temporary, JSON.stringify(report, null, 2));
+    await rename(temporary, resultFile);
+  };
+  await publish({ runId, startedAt, done: false, verdict: 'RUNNING' });
+  try {
+    const report = await execute();
+    const result = { ...report, runId, startedAt, generatedAt: new Date().toISOString(), done: true,
+      verdict: report.failures?.length ? 'FAIL' : 'PASS', durationMs: Math.round(performance.now() - started) };
+    await publish(result);
+    return result;
+  } catch (error) {
+    await publish({ runId, startedAt, generatedAt: new Date().toISOString(), done: true, verdict: 'FAIL',
+      durationMs: Math.round(performance.now() - started), error: error?.message ?? String(error) });
+    throw error;
+  }
+}
+
+export async function runUiMatrix(options) {
+  if (!options.outDirName) throw new Error('outDirName is required');
+  const outDir = path.join(root, '.scratch', options.outDirName);
+  mkdirSync(outDir, { recursive: true });
+  const resultFile = path.join(outDir, 'result.json');
+  const report = await withMatrixReport(resultFile, () => executeUiMatrix(options));
+  const summary = { verdict: report.verdict, caseCount: report.caseCount, checkCount: report.checkCount,
+    passedChecks: report.passedChecks, failedChecks: report.failures?.length ?? 0,
+    semanticScenarios: report.scenarios?.length, scenarios: report.scenarios,
+    behaviorCaseCount: report.behaviorCaseCount, screenshotCount: report.screenshotCount,
+    durationMs: report.durationMs, runId: report.runId, resultFile, screenshot: report.screenshot };
+  if (report.verdict === 'FAIL') { process.exitCode = 1; console.error(JSON.stringify(summary)); }
+  else console.log(JSON.stringify(summary));
+  return summary;
+}
 
 export function validateMatrixReport(report) {
   const counts = ['caseCount', 'checkCount', 'passedChecks'];
@@ -28,6 +69,22 @@ export function combineMatrixReports(reports) {
     passedChecks: reports.reduce((sum, report) => sum + report.passedChecks, 0),
     failures: reports.flatMap(report => report.failures.map(failure => report.name ? { case: report.name, ...failure } : failure)),
   });
+}
+
+// A screenshot is evidence of appearance, not another execution of the matrix.
+export async function runMatrixCaptures({ cases, runMatrix, prepareCapture, capture }) {
+  if (!cases.length) throw new Error('No UI screenshot cases');
+  const report = validateMatrixReport(await runMatrix(cases[0]));
+  const screenshots = [];
+  for (const item of cases) {
+    try {
+      await prepareCapture(item);
+      screenshots.push(await capture(item));
+    } catch (error) {
+      throw new Error(`UI screenshot failed (${item.name}): ${error?.message ?? error}`, { cause: error });
+    }
+  }
+  return { ...report, screenshotCount: screenshots.length, screenshots };
 }
 
 export class CdpCallTimeoutError extends Error {
@@ -109,7 +166,7 @@ async function killTree(child) {
   child.kill('SIGTERM');
 }
 
-export async function runUiMatrix({
+async function executeUiMatrix({
   harnessPath,
   resultGlobal = '__YTDL_UI_MATRIX__',
   outDirName,
@@ -118,7 +175,9 @@ export async function runUiMatrix({
   viewportWidth = 1360,
   viewportHeight = 1600,
   auditCases,
+  captureFunction,
 }) {
+  const startedAt = performance.now();
   if (!harnessPath?.startsWith('/')) {
     throw new Error('harnessPath must be an absolute Vite path beginning with /');
   }
@@ -273,8 +332,7 @@ export async function runUiMatrix({
       mobile: false,
     });
     const cases = auditCases ?? [{ name: screenshotName, width: viewportWidth, height: viewportHeight }];
-    const results = [];
-    for (const auditCase of cases) {
+    const runCase = async (auditCase) => {
       await call('Emulation.setDeviceMetricsOverride', {
         width: auditCase.width, height: auditCase.height ?? viewportHeight,
         deviceScaleFactor: auditCase.deviceScaleFactor ?? 1, mobile: false,
@@ -289,77 +347,61 @@ export async function runUiMatrix({
       }
       if (!current?.done) throw new Error(`UI matrix timed out after ${timeoutMs}ms: ${auditCase.name}`);
       validateMatrixReport(current);
+      return current;
+    };
+    const captureCase = async (auditCase) => {
       await evaluate('window.scrollTo(0, 0)');
       const capture = await call('Page.captureScreenshot', {
         format: 'png', fromSurface: true, captureBeyondViewport: true,
       });
       await Bun.write(path.join(outDir, auditCase.name), Buffer.from(capture.data, 'base64'));
-      results.push({ name: auditCase.name, width: auditCase.width, height: auditCase.height ?? viewportHeight,
+      return { name: auditCase.name, width: auditCase.width, height: auditCase.height ?? viewportHeight,
         deviceScaleFactor: auditCase.deviceScaleFactor ?? 1,
         physicalResolution: auditCase.physicalResolution,
         windowsScaling: auditCase.windowsScaling,
         approximation: auditCase.approximation,
-        screenshotPath: path.relative(root, path.join(outDir, auditCase.name)).replaceAll('\\', '/'),
-        ...current });
-    }
-    const result = auditCases ? {
-      ...combineMatrixReports(results),
-      scenarios: results.map(current => current.name),
-      cases: results,
-    } : results[0];
-
-    const resultFile = path.join(outDir, 'result.json');
-    await Bun.write(
-      resultFile,
-      JSON.stringify(
-        {
-          generatedAt: new Date().toISOString(),
-          harnessUrl,
-          ...result,
-        },
-        null,
-        2,
-      ),
-    );
-
-    const screenshot = await call('Page.captureScreenshot', {
-      format: 'png',
-      fromSurface: true,
-      captureBeyondViewport: true,
-    });
-    const screenshotFile = path.join(outDir, screenshotName);
-    await Bun.write(screenshotFile, Buffer.from(screenshot.data, 'base64'));
-
-    const summary = {
-      verdict: result.failures?.length ? 'FAIL' : 'PASS',
-      caseCount: result.caseCount,
-      checkCount: result.checkCount,
-      ...(Array.isArray(result.scenarios)
-        ? {
-            semanticScenarios: result.scenarios.length,
-            scenarios: result.scenarios,
-          }
-        : {}),
-      passedChecks: result.passedChecks,
-      ...(result.failures?.length ? { failures: result.failures } : {}),
-      resultFile,
-      screenshot: screenshotFile,
+        screenshotPath: path.relative(root, path.join(outDir, auditCase.name)).replaceAll('\\', '/') };
     };
-
-    if (result.failures?.length) {
-      console.error(JSON.stringify({ verdict: 'FAIL', caseCount: result.caseCount, checkCount: result.checkCount,
-        passedChecks: result.passedChecks, failedChecks: result.failures.length, resultFile, screenshot: screenshotFile }));
-      process.exitCode = 1;
+    let result;
+    if (captureFunction) {
+      result = await runMatrixCaptures({
+        cases, runMatrix: runCase, capture: captureCase,
+        prepareCapture: async (auditCase) => {
+          await call('Emulation.setDeviceMetricsOverride', {
+            width: auditCase.width, height: auditCase.height ?? viewportHeight,
+            deviceScaleFactor: auditCase.deviceScaleFactor ?? 1, mobile: false,
+          });
+          await evaluate(`window[${JSON.stringify(captureFunction)}](${JSON.stringify(auditCase)})`);
+        },
+      });
     } else {
-      console.log(JSON.stringify({ verdict: 'PASS', caseCount: result.caseCount, checkCount: result.checkCount,
-        passedChecks: result.passedChecks, failedChecks: 0, resultFile, screenshot: screenshotFile }));
+      const results = [];
+      for (const auditCase of cases) {
+        const current = await runCase(auditCase);
+        results.push({ ...await captureCase(auditCase), ...current });
+      }
+      result = auditCases ? {
+        ...combineMatrixReports(results),
+        scenarios: results.map(current => current.name), cases: results,
+      } : results[0];
+    }
+    result.durationMs = Math.round(performance.now() - startedAt);
+
+    const screenshotFile = path.join(outDir, captureFunction ? cases.at(-1).name : screenshotName);
+    if (!captureFunction) {
+      const screenshot = await call('Page.captureScreenshot', {
+        format: 'png',
+        fromSurface: true,
+        captureBeyondViewport: true,
+      });
+      await Bun.write(screenshotFile, Buffer.from(screenshot.data, 'base64'));
     }
 
     if (vite.exitCode !== null && vite.exitCode !== 0) {
       throw new Error(`Vite exited early (${vite.exitCode}): ${viteStderr}`);
     }
 
-    return summary;
+    return { ...result, harnessUrl, screenshot: screenshotFile };
   } finally {
     try { await ws?.closeBrowser?.(); } catch {}
     try {
