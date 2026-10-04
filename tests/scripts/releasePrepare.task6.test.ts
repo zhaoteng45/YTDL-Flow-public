@@ -48,6 +48,11 @@ describe('release preparation contract for task 6', () => {
       const step = steps.find((item: { name?: string }) => item.name === name);
       expect(step.run).toContain('$PSNativeCommandUseErrorActionPreference = $true');
     }
+    const source = steps.find((item: { name?: string }) => item.name === 'Check source');
+    expect(source.run).not.toContain('verify:fast');
+    for (const command of ['check:versions', 'typecheck', 'lint', 'test', 'test:packages']) {
+      expect(source.run).toContain(`bun run ${command}`);
+    }
   });
 
   it('keeps help non-destructive and validates git context explicitly', () => {

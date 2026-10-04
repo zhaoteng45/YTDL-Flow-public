@@ -45,7 +45,9 @@ jobs:
       - name: Check source
         run: |
           $PSNativeCommandUseErrorActionPreference = $true
-          bun run verify:fast
+          bun run check:versions
+          bun run typecheck
+          bun run lint
           bun run test
           bun run test:packages
       - name: Prepare runtime tools
