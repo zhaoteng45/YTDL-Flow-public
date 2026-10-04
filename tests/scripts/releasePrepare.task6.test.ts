@@ -13,8 +13,38 @@ const releaseConfig = JSON.parse(execFileSync('bun', ['-e',
   "console.log(JSON.stringify(Bun.YAML.parse(await Bun.file(process.argv[1]).text())))",
   '.github/workflows/release.yml',
 ], { encoding: 'utf8', timeout: 10000 }));
+const ciConfig = JSON.parse(execFileSync('bun', ['-e',
+  "console.log(JSON.stringify(Bun.YAML.parse(await Bun.file(process.argv[1]).text())))",
+  '.github/workflows/ci.yml',
+], { encoding: 'utf8', timeout: 10000 }));
 
 describe('release preparation contract for task 6', () => {
+  it('uploads only the real installer after source, fresh-install and upgrade checks', () => {
+    const job = ciConfig.jobs['windows-install-trust'];
+    expect(job.needs).toEqual(['version-check', 'frontend-check', 'backend-check']);
+    const steps = job.steps;
+    const upload = steps.find((step: { name?: string }) => step.name === 'Upload validation installer');
+    expect(upload.if).toBe("success() && github.event_name == 'push'");
+    expect(upload.uses).toBe('actions/upload-artifact@v4');
+    expect(upload.with['if-no-files-found']).toBe('error');
+    expect(upload.with.name).toContain('github.sha');
+    expect(steps.indexOf(upload)).toBeGreaterThan(steps.findIndex((step: { name?: string }) => step.name === 'Verify Synthetic Upgrade'));
+    expect(ciConfig.jobs['desktop-packaging-smoke'].steps.some((step: { uses?: string }) => step.uses?.startsWith('actions/upload-artifact'))).toBe(false);
+  });
+
+  it('publishes the accepted draft without rebuilding or replacing its assets', () => {
+    const inputs = releaseConfig.on.workflow_dispatch.inputs;
+    expect(inputs.publish_release).toMatchObject({ type: 'boolean', default: false });
+    expect(inputs.human_verified).toMatchObject({ type: 'boolean', default: false });
+    expect(releaseConfig.jobs['verify-installer'].if).toBe('inputs.publish_release != true');
+    const publish = releaseConfig.jobs['publish-draft'];
+    expect(publish.if).toBe("github.event_name == 'workflow_dispatch' && inputs.publish_release == true");
+    expect(publish.env.HUMAN_VERIFIED).toContain('inputs.human_verified');
+    expect(publish.env.INSTALLER_SHA256).toContain('inputs.installer_sha256');
+    expect(publish.steps.at(-1).run).toBe('bun scripts/publish-verified-draft.mjs');
+    expect(publish.steps.some((step: { name?: string }) => step.name === 'Build final installer')).toBe(false);
+  });
+
   it('keeps help non-destructive and validates git context explicitly', () => {
     expect(releaseScript).toContain("targetVersion === '--help'");
     expect(releaseScript).toContain('git rev-parse --is-inside-work-tree');

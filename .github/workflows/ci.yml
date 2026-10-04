@@ -173,6 +173,7 @@ jobs:
 
   windows-install-trust:
     name: Windows Install Trust
+    needs: [version-check, frontend-check, backend-check]
     runs-on: windows-latest
     env:
       TAURI_TARGET_TRIPLE: x86_64-pc-windows-msvc
@@ -240,6 +241,15 @@ jobs:
       - name: Verify Synthetic Upgrade
         shell: pwsh
         run: pwsh -NoProfile -NonInteractive -File scripts/verify-windows-msi-install.ps1 -VerifyLicenses -RunNativeSmoke -PreviousMsi "$env:RUNNER_TEMP/ytdl-upgrade-baseline.msi" -BaselineKind synthetic
+
+      - name: Upload validation installer
+        if: success() && github.event_name == 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: validation-installer-${{ github.sha }}
+          path: src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Upload Install-Trust Diagnostics
         if: always()

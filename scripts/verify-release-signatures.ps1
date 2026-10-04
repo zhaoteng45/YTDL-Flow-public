@@ -19,5 +19,5 @@ try {
 } finally {
     if (Test-Path -LiteralPath $decodedPath) { Remove-Item -LiteralPath $decodedPath }
 }
-@{ status = 'passed'; msiSha256 = (Get-FileHash -LiteralPath $MsiPath -Algorithm SHA256).Hash.ToLowerInvariant(); authenticodeVerified = $true; updaterVerified = $true } |
+@{ status = 'passed'; msiSha256 = (Get-FileHash -LiteralPath $MsiPath -Algorithm SHA256).Hash.ToLowerInvariant(); updaterSignatureSha256 = (Get-FileHash -LiteralPath $signaturePath -Algorithm SHA256).Hash.ToLowerInvariant(); authenticodeVerified = $true; updaterVerified = $true } |
     ConvertTo-Json | Set-Content -LiteralPath $ReportPath -Encoding utf8

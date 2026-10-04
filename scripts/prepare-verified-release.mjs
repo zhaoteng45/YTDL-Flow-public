@@ -25,6 +25,9 @@ const evidence = assertReleaseEvidence({
   signature: readReport('signature.json'), licenses: verifyLicenseBundle('src-tauri/licenses'),
 });
 const signature = fs.readFileSync(installer + '.sig', 'utf8').trim();
+if (evidence.signature.updaterSignatureSha256 !== fileSha256(installer + '.sig')) {
+  throw new Error('Updater signature changed after verification');
+}
 const releaseRoot = path.join(process.env.RUNNER_TEMP, 'verified-release');
 fs.mkdirSync(releaseRoot);
 for (const file of [installer, installer + '.sig']) fs.copyFileSync(file, path.join(releaseRoot, path.basename(file)));

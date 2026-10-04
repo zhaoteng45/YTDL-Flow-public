@@ -10,6 +10,22 @@ on:
         description: 'Create a draft release after all installer checks pass'
         type: boolean
         default: false
+      publish_release:
+        description: 'Publish an existing verified draft without rebuilding'
+        type: boolean
+        default: false
+      release_tag:
+        description: 'Existing draft tag to publish, e.g. v3.1.3'
+        type: string
+        default: ''
+      installer_sha256:
+        description: 'SHA256 of the draft MSI you tested'
+        type: string
+        default: ''
+      human_verified:
+        description: 'I verified the release UI, real website download and user settings'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -20,6 +36,7 @@ concurrency:
 
 jobs:
   verify-installer:
+    if: inputs.publish_release != true
     runs-on: windows-latest
     timeout-minutes: 60
     permissions:
@@ -132,3 +149,23 @@ jobs:
             ${{ runner.temp }}/ytdl-flow-install-trust/*.json
             ${{ runner.temp }}/ytdl-flow-install-trust/*.log
           if-no-files-found: warn
+
+  publish-draft:
+    if: github.event_name == 'workflow_dispatch' && inputs.publish_release == true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ inputs.release_tag }}
+      INSTALLER_SHA256: ${{ inputs.installer_sha256 }}
+      HUMAN_VERIFIED: ${{ inputs.human_verified }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - name: Publish accepted draft
+        run: bun scripts/publish-verified-draft.mjs

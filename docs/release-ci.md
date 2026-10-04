@@ -2,6 +2,8 @@
 
 普通 CI 的 Windows Install Trust 和 Release Pipeline 都检查安装后的文件及许可证，并使用安装后的应用解析和下载一段本地生成的视频。该测试调用生产 Rust 下载服务，使用随包工具，不依赖外部网站或 Cookies。它不覆盖前端点击操作、真实 YouTube 下载或人工视觉检查。
 
+推送 main/dev 后，普通 CI 先通过版本、前端和 Rust 检查，再完成真实运行工具安装包的全新安装与模拟升级验收。通过后在该次 Actions 运行的 Artifacts 提供 `validation-installer-<提交哈希>`，保留 7 天，沿用 Release 验证包的保存周期。它是未完成正式发行门槛的测试包；使用模拟运行工具的 Desktop Packaging Smoke 不上传安装包。
+
 ## 自动检查
 
 1. 固定版本、SHA256 校验过的 cargo-about 收集 Rust 许可证。JavaScript 依赖按实际安装路径遍历，包括 Bun 隔离安装的间接依赖。
@@ -12,6 +14,10 @@
 6. 所有报告绑定同一个最终 MSI 哈希。许可证来源核查未完成、签名失败、安装或下载失败时，不创建带安装包的 Release。
 
 默认手动运行 Release Pipeline 只执行检查。勾选 `prepare_release` 或推送匹配源码版本的 `v*` 标签，才会尝试创建草稿 Release。草稿不会自动公开；确认界面和真实下载后再发布。
+
+面向普通用户公开下载时，先用 `prepare_release` 创建通过全部签名、许可证、安装与下载检查的草稿。下载草稿 MSI，实际检查界面、真实网站下载及用户设置后，再运行 Release Pipeline：勾选 `publish_release` 与 `human_verified`，填写草稿的 `release_tag` 和已验收 MSI 的 `installer_sha256`。该路径不重新构建、不覆盖附件，只核验已有草稿的版本、源码提交、MSI 哈希、发行证据及更新元数据，再公开为最新 Release。缺少人工确认、身份不符或检查失败时拒绝公开；已公开版本也不会被覆盖。
+
+公开后，普通用户从 [最新版本下载入口](https://github.com/zhaoteng45/YTDL-Flow-public/releases/latest) 下载 `.msi`，无需进入 Actions。附件同时包含更新签名、`latest.json`、`SHA256SUMS.txt` 和 `release-evidence.json`。标签触发仍创建草稿，保留发行人的人工验收步骤。
 
 ## 签名配置
 
