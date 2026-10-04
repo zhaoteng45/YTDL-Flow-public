@@ -4,9 +4,43 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   CdpCallTimeoutError,
   navigateWithTransportRetry,
+  validateMatrixReport,
+  combineMatrixReports,
 } from '../../scripts/ui-matrix-runner.mjs';
 
 const source = readFileSync(resolve('scripts/ui-matrix-runner.mjs'), 'utf8');
+
+describe('UI matrix report contract', () => {
+  const report = () => ({ done: true, caseCount: 30, checkCount: 3174, passedChecks: 3174, failures: [] });
+  it('keeps case counts distinct from check counts', () => {
+    expect(validateMatrixReport(report())).toEqual(report());
+    expect(combineMatrixReports([report(), { ...report(), caseCount: 18, checkCount: 1524, passedChecks: 1524 }]))
+      .toMatchObject({ caseCount: 48, checkCount: 4698, passedChecks: 4698, failures: [] });
+  });
+  it('rejects ambiguous legacy totals instead of guessing', () => {
+    expect(() => validateMatrixReport({ done: true, passed: 3174, total: 30, failures: [] })).toThrow(/report/);
+  });
+  it('preserves failed checks and rejects inconsistent success claims', () => {
+    const failure = { check: 'filename overflows' };
+    const failed = { ...report(), passedChecks: 3173, failures: [failure] };
+    expect(combineMatrixReports([failed])).toMatchObject({ passedChecks: 3173, failures: [failure] });
+    expect(() => validateMatrixReport({ ...failed, passedChecks: 3174 })).toThrow(/report/);
+    expect(() => validateMatrixReport({ ...report(), caseCount: 0 })).toThrow(/report/);
+    expect(() => validateMatrixReport({ ...report(), done: false })).toThrow(/report/);
+  });
+  it('wires existing browser checks into Windows CI with failure artifacts', () => {
+    const workflow = readFileSync('.github/workflows/ci.yml', 'utf8');
+    const job = workflow.split('  ui-layout-check:')[1]?.split(/^  [a-z][a-z-]+:/m)[0] ?? '';
+    expect(job.includes('runs-on: windows-latest')).toBe(true);
+    for (const command of ['bun run test:ui-input', 'bun run test:ui-settings', 'bun run test:ui-download-list', 'bun run test:ui-geometry -- --layout-review']) {
+      expect(job.includes(command), command).toBe(true);
+    }
+    expect(job.includes('if: always()')).toBe(true);
+    expect(job.includes('actions/upload-artifact@v4')).toBe(true);
+    expect(job.includes('include-hidden-files: true')).toBe(true);
+    expect(job.includes('if-no-files-found: error')).toBe(true);
+  });
+});
 
 describe('UI matrix CDP transport hardening', () => {
   it('bounds each CDP request independently from the outer matrix deadline', () => {

@@ -32,8 +32,9 @@ interface MatrixFailure {
 
 interface MatrixResult {
   done: boolean;
-  passed: number;
-  total: number;
+  passedChecks: number;
+  caseCount: number;
+  checkCount: number;
   failures: MatrixFailure[];
   scenarios: string[];
 }
@@ -519,8 +520,9 @@ async function run() {
 
   window.__YTDL_UI_MATRIX__ = {
     done: true,
-    passed,
-    total: combinations,
+    passedChecks: passed,
+    caseCount: combinations,
+    checkCount: passed + failures.length,
     failures,
     scenarios: scenarios.map((scenario) => scenario.key),
   };
@@ -533,8 +535,9 @@ async function run() {
 
 window.__YTDL_UI_MATRIX__ = {
   done: false,
-  passed: 0,
-  total: 0,
+  passedChecks: 0,
+  caseCount: 0,
+  checkCount: 0,
   failures: [],
   scenarios: scenarios.map((scenario) => scenario.key),
 };
@@ -548,8 +551,9 @@ run().catch((error) => {
   });
   window.__YTDL_UI_MATRIX__ = {
     done: true,
-    passed,
-    total: 0,
+    passedChecks: passed,
+    caseCount: 1,
+    checkCount: passed + failures.length,
     failures,
     scenarios: scenarios.map((scenario) => scenario.key),
   };

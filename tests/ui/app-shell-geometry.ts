@@ -98,7 +98,7 @@ async function run() {
     await settle();
     check('permanent shortcut cheat sheet is absent', !document.querySelector('.kbd-shortcuts-tip'));
     const cookie = document.querySelector<HTMLElement>('.cookie-title-text')!;
-    check('cookie heading is not truncated', cookie.scrollWidth <= cookie.clientWidth + 1);
+    check('cookie filename uses single-line ellipsis', getComputedStyle(cookie).whiteSpace === 'nowrap' && getComputedStyle(cookie).textOverflow === 'ellipsis');
     const inputBounds = document.querySelector('textarea')!.getBoundingClientRect();
     const actions = document.querySelector('.input-actions')!.getBoundingClientRect();
     check('input tools do not overlap editable text', actions.top >= inputBounds.bottom - 1);
@@ -182,11 +182,11 @@ async function run() {
       check(`${tab} core settings have visible groups`, visible >= Math.min(innerHeight >= 900 ? 2 : 1, groups.length));
     }
   }
-  window.__YTDL_SHELL_GEOMETRY__ = { done: true, passed, total: passed + failures.length, failures,
+  window.__YTDL_SHELL_GEOMETRY__ = { done: true, caseCount: 1, passedChecks: passed, checkCount: passed + failures.length, failures,
     scenarios: [theme, state], geometry: { width: innerWidth, height: innerHeight, deviceScaleFactor: devicePixelRatio, primary,
       pageScroll: document.documentElement.scrollHeight > innerHeight + 1,
       localScroll: [...document.querySelectorAll<HTMLElement>('.download-queue, .settings-content, .logs-container')].some(el => el.scrollHeight > el.clientHeight + 1),
       overflow: document.documentElement.scrollWidth > innerWidth + 1,
       scrollHeight: document.documentElement.scrollHeight, layout: rect.toJSON(), support: sr.toJSON(), content: mr.toJSON(), settings: settingsGeometry } };
 }
-void run().catch(error => { window.__YTDL_SHELL_GEOMETRY__ = { done: true, passed: 0, total: 1, failures: [{ check: String(error) }] }; });
+void run().catch(error => { window.__YTDL_SHELL_GEOMETRY__ = { done: true, caseCount: 1, passedChecks: 0, checkCount: 1, failures: [{ check: String(error) }] }; });

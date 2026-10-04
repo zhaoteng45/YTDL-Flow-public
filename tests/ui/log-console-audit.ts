@@ -70,7 +70,7 @@ async function run() {
   toggle.click(); await settle();
   commandIsOpenForCapture();
   await settle();
-  window.__YTDL_LOG_AUDIT__ = { done: true, passed, total: passed + failures.length, failures, scenarios: ['long-log-scroll', 'commands', 'clipboard-boundary', 'admin-redaction'], adminMode, locale };
+  window.__YTDL_LOG_AUDIT__ = { done: true, caseCount: 1, passedChecks: passed, checkCount: passed + failures.length, failures, scenarios: ['long-log-scroll', 'commands', 'clipboard-boundary', 'admin-redaction'], adminMode, locale };
 }
 function commandIsOpenForCapture() { document.querySelector<HTMLButtonElement>('.logs-header-actions .text-btn.small')?.click(); }
-void run().catch(error => { window.__YTDL_LOG_AUDIT__ = { done: true, passed: 0, total: 1, failures: [{ check: String(error) }] }; });
+void run().catch(error => { window.__YTDL_LOG_AUDIT__ = { done: true, caseCount: 1, passedChecks: 0, checkCount: 1, failures: [{ check: String(error) }] }; });

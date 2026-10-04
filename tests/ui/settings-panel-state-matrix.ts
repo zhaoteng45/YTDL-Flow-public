@@ -22,8 +22,9 @@ interface MatrixFailure {
 
 interface MatrixResult {
   done: boolean;
-  passed: number;
-  total: number;
+  passedChecks: number;
+  caseCount: number;
+  checkCount: number;
   failures: MatrixFailure[];
   scenarios: string[];
 }
@@ -271,6 +272,15 @@ async function validate(locale: Locale, theme: string, width: number) {
       check(locale, theme, width, Boolean(name && !name.textContent?.includes('C:\\Cookies\\') && getComputedStyle(name).textOverflow === 'ellipsis'), `${label}: basename only and ellipsis`);
       const logout = credential.parentElement?.querySelector<HTMLElement>('button');
       check(locale, theme, width, Boolean(logout && getComputedStyle(logout).whiteSpace === 'nowrap'), `${label}: logout remains on one line`);
+      for (const filename of ['c.txt', '登录凭据.txt', 'long-cookie-name-'.repeat(12) + '.txt']) {
+        store.platformCookies.youtube = `C:\\Cookies\\${filename}`;
+        await settle();
+        check(locale, theme, width, Boolean(name?.textContent?.includes(filename) && !name.textContent.includes('C:\\Cookies\\')), `${label}: credential shows basename`);
+        check(locale, theme, width, Boolean(name && logout && name.getBoundingClientRect().right <= logout.getBoundingClientRect().left + 1), `${label}: name never overlaps logout`);
+        check(locale, theme, width, noHorizontalOverflow(credential.parentElement), `${label}: credential row fits`);
+        check(locale, theme, width, Number.parseFloat(getComputedStyle(credential, '::after').width) <= credential.clientWidth + 1, `${label}: path hint fits credential width`);
+        if (filename.length > 100) check(locale, theme, width, Boolean(name && name.scrollWidth > name.clientWidth), `${label}: long name actually truncated`);
+      }
     }
     const selected = getComputedStyle(button);
     check(locale, theme, width, contrast(selected.color, selected.backgroundColor) >= 4.5, `${label}: selected nav text meets AA`);
@@ -345,8 +355,9 @@ async function run() {
 
   window.__YTDL_SETTINGS_UI_MATRIX__ = {
     done: true,
-    passed,
-    total: combinations,
+    passedChecks: passed,
+    caseCount: combinations,
+    checkCount: passed + failures.length,
     failures,
     scenarios,
   };
@@ -358,8 +369,9 @@ async function run() {
 
 window.__YTDL_SETTINGS_UI_MATRIX__ = {
   done: false,
-  passed: 0,
-  total: 0,
+  passedChecks: 0,
+  caseCount: 0,
+  checkCount: 0,
   failures: [],
   scenarios,
 };
@@ -373,8 +385,9 @@ run().catch((error) => {
   });
   window.__YTDL_SETTINGS_UI_MATRIX__ = {
     done: true,
-    passed,
-    total: 0,
+    passedChecks: passed,
+    caseCount: 1,
+    checkCount: passed + failures.length,
     failures,
     scenarios,
   };

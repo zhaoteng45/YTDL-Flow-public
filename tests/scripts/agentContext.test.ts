@@ -134,4 +134,24 @@ describe('agent context lightweight STATUS reader', () => {
       expect(result.stdout).toContain(`Status [${state}]`);
     }
   });
+
+  it('rejects duplicate current task sections', () => {
+    const result = runCheck(createFixture(validStatus() + '\n# Current Task\nGoal:\nother\n'));
+    expect(result.status).not.toBe(0);
+    expect(result.stdout).toContain('exactly one Current Task');
+  });
+
+  it('does not read a workflow from archived history', () => {
+    const status = validStatus().replace('Workflow:\ncodebase-design\n', '') + '\n# History\nWorkflow:\ncodebase-design\n';
+    const result = runCheck(createFixture(status));
+    expect(result.status).not.toBe(0);
+    expect(result.stdout).toContain('Current Task');
+  });
+
+  it('preserves historical workflows outside current authority', () => {
+    const status = validStatus() + '\n# History\nWorkflow:\ndiagnosing-bugs\n';
+    const result = runCheck(createFixture(status));
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('Workflow [codebase-design]');
+  });
 });

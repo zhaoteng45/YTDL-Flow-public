@@ -142,9 +142,13 @@ function readStatus(file) {
   }
 
   const body = content.slice(frontmatterMatch[0].length);
-  const workflowMatch = body.match(/^Workflow:\s*\r?\n(?:[ \t]*\r?\n)*[ \t]*([A-Za-z0-9][A-Za-z0-9_-]*)[ \t]*$/m);
-  if (!workflowMatch) {
-    throw new Error("STATUS body must contain a fixed Workflow slot");
+  if ([...body.matchAll(/^# Current Task[ \t]*\r?$/gm)].length !== 1) {
+    throw new Error("STATUS must contain exactly one Current Task section");
+  }
+  const current = body.split(/^# Current Task[ \t]*\r?$/m)[1].split(/^# /m)[0];
+  const workflowMatches = [...current.matchAll(/^Workflow:[ \t]*\r?\n(?:[ \t]*\r?\n)*[ \t]*([A-Za-z0-9][A-Za-z0-9_-]*)[ \t]*\r?$/gm)];
+  if (workflowMatches.length !== 1) {
+    throw new Error("STATUS Current Task must contain a fixed Workflow slot exactly once");
   }
 
   return {
@@ -152,7 +156,7 @@ function readStatus(file) {
     status: data.status,
     writer: data.writer,
     humanGate: data.human_gate,
-    workflow: workflowMatch[1],
+    workflow: workflowMatches[0][1],
   };
 }
 

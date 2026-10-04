@@ -11,8 +11,9 @@ declare global {
   interface Window {
     __YTDL_APP_SHELL_AUDIT__?: {
       done: boolean;
-      passed: number;
-      total: number;
+      passedChecks: number;
+      caseCount: number;
+      checkCount: number;
       failures: Array<{ check: string }>;
       scenarios: string[];
       loadError?: string;
@@ -22,8 +23,9 @@ declare global {
 
 window.__YTDL_APP_SHELL_AUDIT__ = {
   done: false,
-  passed: 0,
-  total: 0,
+  passedChecks: 0,
+  caseCount: 0,
+  checkCount: 0,
   failures: [],
   scenarios: ['app-shell'],
 };
@@ -125,7 +127,7 @@ async function run() {
       const mainRect = main.getBoundingClientRect();
       checks.push(
         ['material shell uses grid', materialLayout.display === 'grid'],
-        ['material task content leads supporting pane', mainRect.left < sidebarRect.left && mainRect.right <= sidebarRect.left + 2],
+        ['material operation pane leads content', sidebarRect.left < mainRect.left && sidebarRect.right <= mainRect.left + 2],
         ['material supporting pane uses large container shape', Number.parseFloat(materialSidebarPanel.borderRadius) >= 20],
         ['material supporting pane has no neo hard shadow', materialSidebarPanel.boxShadow === 'none'],
         ['material theme trigger hit target is at least 44px', (themeTrigger?.getBoundingClientRect().height ?? 0) >= 43.5],
@@ -147,8 +149,9 @@ async function run() {
 
   window.__YTDL_APP_SHELL_AUDIT__ = {
     done: true,
-    passed,
-    total: checks.length,
+    passedChecks: passed,
+    caseCount: 1,
+    checkCount: checks.length,
     failures,
     scenarios: ['app-shell'],
     ...(loadError ? { loadError } : {}),

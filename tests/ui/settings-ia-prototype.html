@@ -557,7 +557,7 @@ function render() {
   if (!variants.includes(current)) current = 'A';
   document.getElementById('prototype').innerHTML = current === 'A' ? variantA() : current === 'B' ? variantB() : variantC();
   document.getElementById('variant-label').textContent = names[current];
-  window.__YTDL_SETTINGS_PROTOTYPE__ = { done: true, passed: 1, total: 1, failures: [], scenarios: [names[current]] };
+  window.__YTDL_SETTINGS_PROTOTYPE__ = { done: true, caseCount: 1, passedChecks: 1, checkCount: 1, failures: [], scenarios: [names[current]] };
 }
 
 function cycle(delta) {

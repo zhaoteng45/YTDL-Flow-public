@@ -22,8 +22,9 @@ interface MatrixFailure {
 
 interface MatrixResult {
   done: boolean;
-  passed: number;
-  total: number;
+  passedChecks: number;
+  caseCount: number;
+  checkCount: number;
   failures: MatrixFailure[];
   scenarios: string[];
 }
@@ -109,7 +110,7 @@ async function mount(locale: Locale) {
   app.mount(host);
   await settle();
 
-  return analyzeEvents;
+  return { analyzeEvents, store };
 }
 
 function setTextarea(value: string) {
@@ -122,7 +123,7 @@ function setTextarea(value: string) {
 
 async function validate(locale: Locale, theme: string, width: number) {
   const label = `${locale} ${theme} ${width}`;
-  const analyzeEvents = await mount(locale);
+  const { analyzeEvents, store } = await mount(locale);
 
   check(locale, theme, width, host.scrollWidth <= host.clientWidth + 1, `${label}: empty state no horizontal overflow`);
 
@@ -139,6 +140,23 @@ async function validate(locale: Locale, theme: string, width: number) {
   check(locale, theme, width, Boolean(cookieName && getComputedStyle(cookieName).textOverflow === 'ellipsis'), `${label}: long filename uses ellipsis`);
   host.querySelector<HTMLButtonElement>('.cookie-select-btn')?.focus();
   check(locale, theme, width, Boolean(credential && getComputedStyle(credential, '::after').display === 'block'), `${label}: keyboard focus shows full path`);
+  for (const filename of ['c.txt', '登录凭据.txt', 'long-cookie-name-'.repeat(12) + '.txt']) {
+    store.extraArgs.cookies = `C:\\Cookies\\${filename}`;
+    await settle();
+    const name = host.querySelector<HTMLElement>('.cookie-title-text');
+    const group = host.querySelector<HTMLElement>('.cookie-path-preview');
+    check(locale, theme, width, name?.textContent?.trim() === filename, `${label}: credential basename matches ${filename.length} chars`);
+    check(locale, theme, width, Boolean(group && group.scrollWidth <= group.clientWidth + 1), `${label}: credential group fits`);
+    if (name && group) {
+      check(locale, theme, width, name.getBoundingClientRect().height <= Number.parseFloat(getComputedStyle(name).lineHeight) + 1, `${label}: filename remains one line`);
+      check(locale, theme, width, getComputedStyle(group, '::after').content.includes('Cookies'), `${label}: full path in focused hint`);
+      check(locale, theme, width, Number.parseFloat(getComputedStyle(group, '::after').width) <= group.clientWidth + 1, `${label}: path hint fits credential width`);
+      if (filename.length > 100) check(locale, theme, width, name.scrollWidth > name.clientWidth, `${label}: long filename is actually truncated`);
+    }
+    const select = host.querySelector<HTMLElement>('.file-cookies-btn');
+    const clear = host.querySelector<HTMLElement>('.clear-cookies-btn');
+    check(locale, theme, width, Boolean(select && clear && select.getBoundingClientRect().right <= clear.getBoundingClientRect().left + 1), `${label}: credential actions do not overlap`);
+  }
 
   if (wrapper) {
     const style = getComputedStyle(wrapper);
@@ -217,8 +235,9 @@ async function run() {
 
   window.__YTDL_INPUT_UI_MATRIX__ = {
     done: true,
-    passed,
-    total: combinations,
+    passedChecks: passed,
+    caseCount: combinations,
+    checkCount: passed + failures.length,
     failures,
     scenarios,
   };
@@ -230,8 +249,9 @@ async function run() {
 
 window.__YTDL_INPUT_UI_MATRIX__ = {
   done: false,
-  passed: 0,
-  total: 0,
+  passedChecks: 0,
+  caseCount: 0,
+  checkCount: 0,
   failures: [],
   scenarios,
 };
@@ -245,8 +265,9 @@ run().catch((error) => {
   });
   window.__YTDL_INPUT_UI_MATRIX__ = {
     done: true,
-    passed,
-    total: 0,
+    passedChecks: passed,
+    caseCount: 1,
+    checkCount: passed + failures.length,
     failures,
     scenarios,
   };

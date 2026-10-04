@@ -126,7 +126,7 @@ try {
   window.matchMedia = originalMedia;
   Element.prototype.scrollIntoView = originalScroll;
 }
-const result = { done: true, passed: total - failures.length, total, failures, scenarios: ['U1', 'U2', 'U3', 'U4'] };
+const result = { done: true, caseCount: 4, passedChecks: total - failures.length, checkCount: total, failures, scenarios: ['U1', 'U2', 'U3', 'U4'] };
 const requestedTheme = new URLSearchParams(location.search).get('theme');
 document.documentElement.dataset.theme = Object.values(THEMES).includes(requestedTheme as typeof THEMES[keyof typeof THEMES]) ? requestedTheme! : 'material';
 const previewItems = items.filter(item => ['section', 'credentials', 'running'].includes(item.rowId)).map(item => ({ ...item, title: item.rowId === 'running' ? '示例：正在下载的媒体' : item.rowId === 'credentials' ? '示例：需要登录凭证的视频' : '示例：选择格式与下载片段', ...(item.metadata ? { metadata: { ...item.metadata, title: '示例：选择格式与下载片段', channel: '示例频道', duration: '01:40' } } : {}) }));

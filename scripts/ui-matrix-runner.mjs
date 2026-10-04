@@ -6,6 +6,30 @@ import path from 'node:path';
 
 const root = process.cwd();
 
+export function validateMatrixReport(report) {
+  const counts = ['caseCount', 'checkCount', 'passedChecks'];
+  if (!report || report.done !== true || !Array.isArray(report.failures) ||
+      counts.some(key => !Number.isSafeInteger(report[key]) || report[key] < 0) ||
+      report.caseCount === 0 || report.checkCount === 0 ||
+      report.passedChecks + report.failures.length !== report.checkCount ||
+      Object.hasOwn(report, 'total') || Object.hasOwn(report, 'passed')) {
+    throw new Error('Invalid UI matrix report: expected distinct caseCount, checkCount and passedChecks');
+  }
+  return report;
+}
+
+export function combineMatrixReports(reports) {
+  if (!reports.length) throw new Error('Invalid UI matrix report: no cases');
+  reports.forEach(validateMatrixReport);
+  return validateMatrixReport({
+    done: true,
+    caseCount: reports.reduce((sum, report) => sum + report.caseCount, 0),
+    checkCount: reports.reduce((sum, report) => sum + report.checkCount, 0),
+    passedChecks: reports.reduce((sum, report) => sum + report.passedChecks, 0),
+    failures: reports.flatMap(report => report.failures.map(failure => report.name ? { case: report.name, ...failure } : failure)),
+  });
+}
+
 export class CdpCallTimeoutError extends Error {
   constructor(method, timeoutMs) {
     super(`CDP ${method} timed out after ${timeoutMs}ms`);
@@ -264,6 +288,7 @@ export async function runUiMatrix({
         await Bun.sleep(250);
       }
       if (!current?.done) throw new Error(`UI matrix timed out after ${timeoutMs}ms: ${auditCase.name}`);
+      validateMatrixReport(current);
       await evaluate('window.scrollTo(0, 0)');
       const capture = await call('Page.captureScreenshot', {
         format: 'png', fromSurface: true, captureBeyondViewport: true,
@@ -278,10 +303,7 @@ export async function runUiMatrix({
         ...current });
     }
     const result = auditCases ? {
-      done: true,
-      passed: results.reduce((sum, current) => sum + current.passed, 0),
-      total: results.reduce((sum, current) => sum + current.total, 0),
-      failures: results.flatMap(current => current.failures.map(failure => ({ case: current.name, ...failure }))),
+      ...combineMatrixReports(results),
       scenarios: results.map(current => current.name),
       cases: results,
     } : results[0];
@@ -310,24 +332,27 @@ export async function runUiMatrix({
 
     const summary = {
       verdict: result.failures?.length ? 'FAIL' : 'PASS',
-      combinations: result.total,
+      caseCount: result.caseCount,
+      checkCount: result.checkCount,
       ...(Array.isArray(result.scenarios)
         ? {
             semanticScenarios: result.scenarios.length,
             scenarios: result.scenarios,
           }
         : {}),
-      passedChecks: result.passed,
+      passedChecks: result.passedChecks,
       ...(result.failures?.length ? { failures: result.failures } : {}),
       resultFile,
       screenshot: screenshotFile,
     };
 
     if (result.failures?.length) {
-      console.error(JSON.stringify(summary, null, 2));
+      console.error(JSON.stringify({ verdict: 'FAIL', caseCount: result.caseCount, checkCount: result.checkCount,
+        passedChecks: result.passedChecks, failedChecks: result.failures.length, resultFile, screenshot: screenshotFile }));
       process.exitCode = 1;
     } else {
-      console.log(JSON.stringify(summary, null, 2));
+      console.log(JSON.stringify({ verdict: 'PASS', caseCount: result.caseCount, checkCount: result.checkCount,
+        passedChecks: result.passedChecks, failedChecks: 0, resultFile, screenshot: screenshotFile }));
     }
 
     if (vite.exitCode !== null && vite.exitCode !== 0) {

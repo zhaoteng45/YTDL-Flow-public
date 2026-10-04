@@ -529,6 +529,13 @@
 
     function runChecks() {
       var failures = [];
+      var checkCount = 0;
+      var passedChecks = 0;
+      function check(ok, label) {
+        checkCount += 1;
+        if (ok) passedChecks += 1;
+        else failures.push({ check: label });
+      }
       var root = document.querySelector('.settings-window');
       var active = tabs.find(function (button) { return button.getAttribute('aria-selected') === 'true'; });
       var panel = panels.find(function (item) { return !item.hidden; });
@@ -539,28 +546,29 @@
         tools: ['app-update', 'toolchain', 'health']
       };
 
-      if (!root) failures.push('settings window missing');
-      if (root && root.scrollWidth > root.clientWidth + 1) failures.push('settings window horizontal overflow');
-      if (tabs.filter(function (button) { return button.getAttribute('aria-selected') === 'true'; }).length !== 1) failures.push('selected tab count');
-      if (panels.filter(function (item) { return !item.hidden; }).length !== 1) failures.push('visible panel count');
-      if (!active || !panel || active.dataset.tab !== panel.dataset.panel) failures.push('tab/panel mismatch');
+      check(Boolean(root), 'settings window missing');
+      if (root) check(root.scrollWidth <= root.clientWidth + 1, 'settings window horizontal overflow');
+      check(tabs.filter(function (button) { return button.getAttribute('aria-selected') === 'true'; }).length === 1, 'selected tab count');
+      check(panels.filter(function (item) { return !item.hidden; }).length === 1, 'visible panel count');
+      check(Boolean(active && panel && active.dataset.tab === panel.dataset.panel), 'tab/panel mismatch');
 
       if (panel) {
         (expected[panel.dataset.panel] || []).forEach(function (section) {
-          if (!panel.querySelector('[data-section="' + section + '"]')) failures.push('missing section ' + section);
+          check(Boolean(panel.querySelector('[data-section="' + section + '"]')), 'missing section ' + section);
         });
-        if (panel.scrollWidth > panel.clientWidth + 1) failures.push('active panel horizontal overflow');
+        check(panel.scrollWidth <= panel.clientWidth + 1, 'active panel horizontal overflow');
       }
 
       document.querySelectorAll('button').forEach(function (button) {
         if (button.offsetParent === null) return;
-        if (button.getBoundingClientRect().height < 44) failures.push('button below 44px: ' + button.textContent.trim());
+        check(button.getBoundingClientRect().height >= 44, 'button below 44px: ' + button.textContent.trim());
       });
 
       window.__YTDL_SETTINGS_CANDIDATE__ = {
         done: true,
-        passed: failures.length ? 0 : 1,
-        total: 1,
+        passedChecks: passedChecks,
+        caseCount: 1,
+        checkCount: checkCount,
         failures: failures,
         scenarios: [active ? active.dataset.tab : 'unknown']
       };
