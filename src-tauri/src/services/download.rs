@@ -523,6 +523,11 @@ fn build_format_sort_fields(extra: &ExtraArgs) -> Vec<String> {
         }
     }
 
+    // Codec preferences are soft tie-breakers, not permission to downscale.
+    // Without a numeric ceiling, keep yt-dlp's resolution priority explicit.
+    if !fields.is_empty() && !fields[0].starts_with("res:") {
+        fields.insert(0, "res".into());
+    }
     fields
 }
 
@@ -2205,12 +2210,38 @@ impl DownloadService {
         }
 
         // Resolution / codec preferences expressed as format sorting
+        let mut selection_sort = Vec::new();
         if let Some(extra) = &extra_args {
             let fields = build_format_sort_fields(extra);
             if !fields.is_empty() {
                 args.push("-S".to_string());
                 args.push(fields.join(","));
             }
+            selection_sort = fields;
+        }
+        if !captured {
+            let explicit = extra_args
+                .as_ref()
+                .is_some_and(|extra| extra.format_selector.is_some());
+            let _ = app.emit(
+                "analysis-log",
+                AnalysisLogPayload {
+                    id: id.clone(),
+                    line: format!(
+                        "[Selection] mode={} sort={}",
+                        if explicit {
+                            "explicit-format"
+                        } else {
+                            "automatic"
+                        },
+                        if selection_sort.is_empty() {
+                            "yt-dlp-default".into()
+                        } else {
+                            selection_sort.join(",")
+                        }
+                    ),
+                },
+            );
         }
 
         // Captured execution bypasses extractors: native code supplies a minimal
@@ -4095,6 +4126,22 @@ mod tests {
             build_format_sort_fields(&extra),
             vec!["res:1080", "vcodec:hevc", "acodec:aac"]
         );
+    }
+
+    #[test]
+    fn best_quality_sorts_resolution_before_saved_codec_preferences() {
+        for resolution in [None, Some("best".into()), Some("auto".into())] {
+            let extra = ExtraArgs {
+                resolution,
+                video_codec: Some("h265".into()),
+                audio_codec: Some("aac".into()),
+                ..Default::default()
+            };
+            assert_eq!(
+                build_format_sort_fields(&extra),
+                vec!["res", "vcodec:hevc", "acodec:aac"]
+            );
+        }
     }
 
     #[test]
