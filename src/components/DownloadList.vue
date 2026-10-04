@@ -634,11 +634,6 @@ const getProgressColor = (status: TaskPresentationRow['status']) => {
 
 
       </div>
-      <div class="kbd-shortcuts-tip" :title="t('download_list.filter.shortcuts_tip')">
-        <kbd>J</kbd><kbd>K</kbd> {{ t('download_list.filter.kbd_nav') }}
-        <kbd>Space</kbd> {{ t('download_list.filter.kbd_run') }}
-        <kbd>/</kbd> {{ t('download_list.filter.kbd_search') }}
-      </div>
     </div>
 
     <!-- Filter Empty State -->
@@ -731,7 +726,7 @@ const getProgressColor = (status: TaskPresentationRow['status']) => {
                   class="metadata-chip resolution"
                   :title="t('download_list.meta.resolution')"
                 >
-                  <NeoIcon name="tv" :size="12" class="brick-icon" /> <span class="brick-value">{{ item.metadata.resolution }}</span>
+                  <NeoIcon name="tv" :size="12" class="brick-icon" /> <span class="brick-value">{{ t('download_list.meta.video_mode') }} · {{ item.metadata.resolution }}</span>
                 </span>
                 <span v-if="item.metadata.filesize" class="metadata-chip filesize" :title="t('download_list.meta.filesize')">
                   <NeoIcon name="disk" :size="12" class="brick-icon" /> <span class="brick-value">{{ item.metadata.filesize }}</span>
@@ -874,7 +869,7 @@ const getProgressColor = (status: TaskPresentationRow['status']) => {
               </button>
               <button
                 v-else-if="getPrimaryTaskAction(item) === 'open-folder'"
-                class="neo-button success primary-task-action"
+                class="neo-button primary primary-task-action"
                 type="button"
                 @click="performPrimaryTaskAction(item)"
               >
@@ -1246,26 +1241,6 @@ const getProgressColor = (status: TaskPresentationRow['status']) => {
 .filter-pill.active .pill-count {
   background: color-mix(in srgb, var(--color-primary), transparent 85%);
   color: var(--color-primary);
-}
-
-.kbd-shortcuts-tip {
-  font-size: 0.72rem;
-  color: var(--color-text-muted);
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  user-select: none;
-}
-
-.kbd-shortcuts-tip kbd {
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
-  padding: 1px 4px;
-  background: var(--color-bg);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  box-shadow: 1px 1px 0 var(--color-border);
 }
 
 .filter-empty-state {

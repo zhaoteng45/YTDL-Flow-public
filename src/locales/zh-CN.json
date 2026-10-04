@@ -61,7 +61,7 @@
   },
   "input": {
     "placeholder": "粘贴一个或多个视频链接\n支持换行、空格或 Tab 分隔",
-    "analyze_btn": "解析并添加 (Ctrl+Enter)",
+    "analyze_btn": "解析并添加",
     "select_dir": "选择下载目录",
     "save_location": "保存位置",
     "save_location_default": "保存位置 (默认)",
@@ -480,7 +480,8 @@
       "resolution": "分辨率",
       "filesize": "大小",
       "audio_mode": "提取纯音频",
-      "audio_mode_hint": "已配置为提取纯音频文件"
+      "audio_mode_hint": "已配置为提取纯音频文件",
+      "video_mode": "视频"
     },
     "logs": {
       "title": "下载日志",
@@ -506,7 +507,7 @@
       "dismiss": "关闭提示"
     },
     "filter": {
-      "search_placeholder": "检索任务标题、作者或链接 (按 / 聚焦)...",
+      "search_placeholder": "搜索标题、作者或链接",
       "all": "全部",
       "active": "进行中",
       "waiting": "待下载",

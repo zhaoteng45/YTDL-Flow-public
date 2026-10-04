@@ -329,7 +329,7 @@ describe('DownloadList UX & resilience elevations', () => {
     // Semantic task buttons retain explicit semantic modifiers
     expect(source).toMatch(/class="neo-button primary primary-task-action"/);
     expect(source).toMatch(/class="neo-button danger primary-task-action"/);
-    expect(source).toMatch(/class="neo-button success primary-task-action"/);
+    expect(source).not.toMatch(/class="neo-button success primary-task-action"/);
 
     // Neutral buttons retain generic classes so scoped neutral background applies
     expect(source).toMatch(/class="neo-button row-overflow-trigger"/);
@@ -353,10 +353,10 @@ describe('DownloadList UX & resilience elevations', () => {
     expect(source).toMatch(/row-overflow-remove/);
   });
 
-  it('provides desktop keyboard navigation and shortcuts hint', () => {
+  it('preserves desktop keyboard navigation without permanent hints', () => {
     expect(source).toMatch(/handleGlobalKeydown/);
     expect(source).toMatch(/focusedRowId/);
-    expect(source).toMatch(/class="kbd-shortcuts-tip"/);
+    expect(source).not.toMatch(/class="kbd-shortcuts-tip"/);
     expect(source).toMatch(/window\.addEventListener\('keydown'/);
     expect(source).toMatch(/window\.removeEventListener\('keydown'/);
   });

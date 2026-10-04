@@ -52,7 +52,7 @@ describe('ThemeSelector accessibility and retained theme coverage', () => {
     expect(primaryRule).not.toContain('var(--color-secondary)');
   });
 
-  it('keeps Graphite muted text at WCAG AA contrast on white and subtle surfaces', () => {
+  it('keeps Graphite muted text at WCAG AA contrast on working and subtle surfaces', () => {
     const block = stylesSource.match(/\[data-theme=["']cobalt-butter["']\]\s*\{([\s\S]*?)\n\}/)?.[1] ?? '';
     const readToken = (name: string) => {
       const value = block.match(new RegExp(`--${name}:\\s*(#[0-9a-fA-F]{6})`))?.[1];
@@ -76,7 +76,7 @@ describe('ThemeSelector accessibility and retained theme coverage', () => {
     };
 
     const muted = readToken('neutral-text-secondary');
-    expect(contrast(muted, '#FFFFFF')).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(muted, readToken('neutral-surface'))).toBeGreaterThanOrEqual(4.5);
     expect(contrast(muted, readToken('neutral-surface-subtle'))).toBeGreaterThanOrEqual(4.5);
   });
 

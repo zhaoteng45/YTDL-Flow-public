@@ -14,7 +14,7 @@ Empty 围绕 Compose / Start，Active 围绕任务管理。data-workspace-state 
 
 | 主题 | Empty | Active | 材料与字形 |
 | --- | --- | --- | --- |
-| 石墨 | 左 Composer + 右流程说明；窄屏堆叠 | 350px 左操作栏 + 主任务区 | 中性石墨、扁平、分隔线与字重优先；减少常驻面板装饰 |
+| 石墨 | 左 Composer + 右流程说明；窄屏堆叠 | 350px 左操作栏 + 主任务区 | 深色中性石墨、雾蓝动作强调、分隔线与字重优先；完整工作表面随主题变暗 |
 | 酒红 | 左 Composer + 右流程说明；窄屏堆叠 | 350px 左操作栏 + 主任务区 | opaque 中性层、Windows 密度、小/中圆角、精确边框；无壁纸渐变 |
 | 蓝宝石 | 左 Composer + 右流程说明；窄屏堆叠 | 350px 左操作栏 + 主任务区 | 柔和圆角、普通标题为正文色；CTA 承载品牌强调 |
 
@@ -31,13 +31,13 @@ Empty 围绕 Compose / Start，Active 围绕任务管理。data-workspace-state 
 首页宽度上限为 1680 CSS px，外层工作区上限为 1800px；以 1920×1080 和 2560×1440 逻辑窗口回归验证，避免旧 1060–1240px 上限造成内容过度收窄。Header Logo 常规 56px，短窗口 44px。活动区预留 104px：Header 64px、容器上下 padding 24px、顶部间隔 12px 与边框余量 4px。链接按钮位于编辑区下方，保持 44px 点击目标；Cookies 标题、状态和文件名分行。短且窄的空首页收起说明区重复粘贴按钮，编辑区粘贴操作始终保留。
 - Settings 导航始终可用，内容局部滚动；Logs ≤min(340px, 38dvh)，长日志不拖长页面。禁止以整页 overflow:hidden 裁控件。
 
-三套主题采用独立配色。Sapphire primary / hover / pressed 为 #2457A7 / #1C468B / #16386E，selected #DCE7F8。Wine 为 #843D4B / #71313E / #5E2633，selected #EBD4D9。Ink 为 #30363D / #242A31 / #181E25，selected #DBE9F4 与 #20587D 文字，进度 #276B9A；深色顶栏 #272B30、控件 #424B55、前景 #F5F7FA、焦点 #AED7F5。主按钮前景为 #FFFFFF。品牌 Logo 保留正式原始颜色，不随主题变色。placeholder 不通过 opacity 降低 AA 对比度。
+三套主题采用独立配色。Sapphire primary / hover / pressed 为 #2457A7 / #1C468B / #16386E，selected #DCE7F8。Wine 为 #843D4B / #71313E / #5E2633，selected #EBD4D9。Ink 为 #B8CCE8 / #D0DEF0 / #A4BCDC，selected #28384B 与 #D0DEF0 文字，进度 #B8CCE8；深色顶栏 #202328、控件 #292D33、前景 #EDF0F4、焦点 #B8CCE8。Ink 主按钮前景 #172537，其他主题为 #FFFFFF。品牌 Logo 保留正式原始颜色，不随主题变色。placeholder 不通过 opacity 降低 AA 对比度。
 
 ## Token 与层次
 
 主题级字面颜色集中在 :root[data-theme] token 定义。组件只引用语义变量：--color-*、--md-sys-color-*、--theme-*。背景、线条、正文、危险动作和 console 使用各自角色，禁止在组件规则散落 Hex。主 CTA、focus 和真实状态有明确语义；保存位置次级，Cookies 三级。
 
-普通产品表面只有 Canvas / Surface / Surface Subtle 三个语义角色。Sapphire：#E2E8F1 / #F6F8FC / #E6ECF5；Wine：#E7E0D8 / #FAF7F2 / #EAE3DD；Ink：#DDE1E5 / #F6F7F8 / #E8EBEE。各主题正文、辅助文字和边界来自对应 neutral token，避免共享纯白背景抹掉主题差异。
+普通产品表面只有 Canvas / Surface / Surface Subtle 三个语义角色。Sapphire：#E2E8F1 / #F6F8FC / #E6ECF5；Wine：#E7E0D8 / #FAF7F2 / #EAE3DD；Ink：#17191D / #202328 / #292D33。各主题正文、辅助文字和边界来自对应 neutral token，避免共享纯白背景抹掉主题差异。
 
 正文、辅助文字、placeholder 对比度至少 4.5:1，大号文字至少 3:1。交互边界若承担可识别控件的唯一作用须满足 3:1；装饰分隔线不能冒充交互边界。普通持久卡片无或极轻阴影，瞬态菜单/模态可提升。主 Pane 不使用 backdrop blur，不按 DOM 嵌套增加灰度。
 
@@ -49,9 +49,9 @@ Empty 围绕 Compose / Start，Active 围绕任务管理。data-workspace-state 
 
 使用既有 Vue / NeoIcon / .neo-* 组件；44px 最小交互目标、可见键盘 focus、原生惯用输入行为。主题切换只调用 store，不直接绕过持久化策略。
 
-Settings 保留 General / Format / Advanced / Tools；宽窗口使用导航 rail 和两列分组，窄容器恢复导航与单列。Modal、导航与内容为白色；普通 setting group 透明，以标题、间距和分隔线分组；tool row 同表面，仅 helper/status 区用 Surface Subtle 或语义底色。禁止灰盒套灰盒。Clean 普通 section heading 不用品牌紫；Empty Composer 不用大块薰衣草色。高级选项渐进披露，字段与 backend 参数保持现有契约。
+Settings 保留 General / Format / Advanced / Tools；宽窗口使用导航 rail 和两列分组，窄容器恢复导航与单列。Modal、导航与内容使用主题 Surface；普通 setting group 透明，以标题、间距和分隔线分组；tool row 同表面，仅 helper/status 区用 Surface Subtle 或语义底色。禁止灰盒套灰盒。Clean 普通 section heading 不用品牌紫；Empty Composer 不用大块薰衣草色。高级选项渐进披露，字段与 backend 参数保持现有契约。
 
-普通 secondary button 配对：白底 #FFFFFF / 正文 #202124 / 边框 #858993；hover #F7F8FA、pressed #F2F3F5。通过组件 foreground/background token 修复对比度，不全局替换 body text。
+普通 secondary button 使用主题 Surface / 正文 / Strong Border 配对；hover 与 pressed 使用 Surface Subtle。通过组件 foreground/background token 修复对比度，不全局替换 body text。
 
 ## 任务详情与密度
 
@@ -70,3 +70,7 @@ fast 110ms / standard 160ms / spatial 220ms，沿用既有 ease token。只有�
 ## 验收
 
 所有正式主题运行相同 Input / DownloadList / Settings 语义矩阵；Empty / Active 在关键桌面宽高组合验真实 geometry 和截图。自动、浏览器、Windows/Tauri Native Human Gate 分开报告，前两者不能代替 Native acceptance。
+
+## 普通用户界面精简
+
+快捷键保留行为，不常驻展示 J/K/Space/Del 说明；解析按钮与搜索框不嵌入快捷键文案。主题按钮和选项采用等宽首尾图标列，文字以控件实际中心居中，不能仅以 text-align 代替几何验收。打开文件夹与下载均为当前主动作，使用主题 Primary；Success 只用于完成状态和进度。视频尺寸标签显示“视频 · 尺寸”，使用 Selected 配对；不能把检测尺寸宣称为最终文件尺寸。设置开关的已选滑块使用 on-primary，避免深色滑块在品牌色底上不明显。石墨参考 Radix 中性灰角色、低饱和雾蓝强调；兼容主题 ID 不变，未新增依赖。

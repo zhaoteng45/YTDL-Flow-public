@@ -1662,3 +1662,32 @@
   :root:is([data-theme="cobalt-butter"], [data-theme="fluent"], [data-theme="material"]) .app-layout[data-workspace-state="empty"] .empty-actions { display: none; }
   :root:is([data-theme="cobalt-butter"], [data-theme="fluent"], [data-theme="material"]) .app-layout[data-workspace-state="empty"] .sidebar-panel { padding: 12px 20px; }
 }
+
+/* Explicit operational roles: action color is independent of completion state. */
+:root:is([data-theme="cobalt-butter"], [data-theme="fluent"], [data-theme="material"]) .selector-trigger {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) 20px;
+  padding-inline: 14px;
+  gap: 8px;
+}
+:root:is([data-theme="cobalt-butter"], [data-theme="fluent"], [data-theme="material"]) .primary-metadata-row .metadata-chip:is(.resolution, .audio-mode) {
+  background: var(--color-selected-bg);
+  color: var(--color-selected-text);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-sm);
+  padding: 4px 8px;
+  font-weight: 650;
+}
+:root:is([data-theme="cobalt-butter"], [data-theme="fluent"], [data-theme="material"]) .toggle-switch input:checked + .slider::before {
+  background: var(--brand-on-primary);
+}
+:root[data-theme="cobalt-butter"] .header-actions .selector-trigger.header-control {
+  background: var(--graphite-header-control);
+  color: var(--graphite-header-text);
+}
+:root[data-theme="cobalt-butter"] :is(.dropdown-menu, .settings-modal-content, .settings-body, .settings-sidebar, .settings-main, .sidebar-panel) {
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+:root[data-theme="cobalt-butter"] .header { border-radius: var(--radius-lg); }
+:root[data-theme="cobalt-butter"] .sidebar-panel { border-radius: var(--radius-lg); }

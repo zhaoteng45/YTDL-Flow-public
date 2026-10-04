@@ -52,7 +52,7 @@ async function run() {
   document.body.append(probe);
   const primary = getComputedStyle(probe).color;
   probe.remove();
-  const expectedPrimary = { material: 'rgb(36, 87, 167)', fluent: 'rgb(132, 61, 75)', 'cobalt-butter': 'rgb(48, 54, 61)' }[theme];
+  const expectedPrimary = { material: 'rgb(36, 87, 167)', fluent: 'rgb(132, 61, 75)', 'cobalt-butter': 'rgb(184, 204, 232)' }[theme];
   check('theme renders its approved independent primary', primary === expectedPrimary);
   const textarea = document.querySelector('textarea')!;
   const placeholder = getComputedStyle(textarea, '::placeholder');
@@ -67,7 +67,7 @@ async function run() {
   check('rendered placeholder contrast meets AA including opacity', contrast >= 4.5);
   const header = document.querySelector<HTMLElement>('.header')!;
   if (theme === 'cobalt-butter') {
-    check('Graphite renders the approved dark header', getComputedStyle(header).backgroundColor === 'rgb(39, 43, 48)');
+    check('Graphite renders the approved dark header', getComputedStyle(header).backgroundColor === 'rgb(32, 35, 40)');
     for (const control of header.querySelectorAll<HTMLElement>('.header-control, .logo, .badge')) {
       const style = getComputedStyle(control);
       const backdrop = style.backgroundColor === 'rgba(0, 0, 0, 0)' ? getComputedStyle(header).backgroundColor : style.backgroundColor;
@@ -83,7 +83,20 @@ async function run() {
   const mr = main.getBoundingClientRect();
   if (params.has('review')) {
     const label = document.querySelector<HTMLElement>('.selector-trigger .label-text')!;
-    check('theme name is centered', getComputedStyle(label).textAlign === 'center');
+    const trigger = document.querySelector<HTMLElement>('.selector-trigger')!;
+    const labelRect = label.getBoundingClientRect();
+    const triggerRect = trigger.getBoundingClientRect();
+    check('theme name is geometrically centered', Math.abs(labelRect.left + labelRect.width / 2 - triggerRect.left - triggerRect.width / 2) <= 1);
+    trigger.click();
+    await settle();
+    for (const option of document.querySelectorAll<HTMLElement>('.dropdown-item')) {
+      const text = option.querySelector<HTMLElement>('.item-label')!.getBoundingClientRect();
+      const bounds = option.getBoundingClientRect();
+      check('menu theme name is geometrically centered', Math.abs(text.left + text.width / 2 - bounds.left - bounds.width / 2) <= 1);
+    }
+    trigger.click();
+    await settle();
+    check('permanent shortcut cheat sheet is absent', !document.querySelector('.kbd-shortcuts-tip'));
     const cookie = document.querySelector<HTMLElement>('.cookie-title-text')!;
     check('cookie heading is not truncated', cookie.scrollWidth <= cookie.clientWidth + 1);
     const inputBounds = document.querySelector('textarea')!.getBoundingClientRect();
@@ -94,8 +107,8 @@ async function run() {
   }
   const composer = document.querySelector<HTMLElement>('.sidebar-panel')!;
   const composerBackground = getComputedStyle(composer).backgroundColor;
-  const expectedSurface = { material: 'rgb(246, 248, 252)', fluent: 'rgb(250, 247, 242)', 'cobalt-butter': 'rgb(246, 247, 248)' }[theme];
-  check('composer uses the approved light working surface', composerBackground === expectedSurface ||
+  const expectedSurface = { material: 'rgb(246, 248, 252)', fluent: 'rgb(250, 247, 242)', 'cobalt-butter': 'rgb(32, 35, 40)' }[theme];
+  check('composer uses the approved working surface', composerBackground === expectedSurface ||
     (composerBackground === 'rgba(0, 0, 0, 0)' && getComputedStyle(sidebar).backgroundColor === expectedSurface));
   check('row count projects requested workspace state', layout.dataset.workspaceState === state);
   check('document has no horizontal overflow', document.documentElement.scrollWidth <= innerWidth + 1);

@@ -61,7 +61,7 @@
   },
   "input": {
     "placeholder": "Paste one or more video links\nSeparate with new lines, spaces, or tabs",
-    "analyze_btn": "Analyze & Add (Ctrl+Enter)",
+    "analyze_btn": "Analyze and add",
     "select_dir": "Select Download Folder",
     "save_location": "Save Location",
     "save_location_default": "Save Location (Default)",
@@ -480,7 +480,8 @@
       "resolution": "Resolution",
       "filesize": "Size",
       "audio_mode": "Extract Audio",
-      "audio_mode_hint": "Configured to extract pure audio file"
+      "audio_mode_hint": "Configured to extract pure audio file",
+      "video_mode": "Video"
     },
     "logs": {
       "title": "Download Logs",
@@ -506,7 +507,7 @@
       "dismiss": "Dismiss"
     },
     "filter": {
-      "search_placeholder": "Search tasks by title, uploader, or url (press / to focus)...",
+      "search_placeholder": "Search title, author or link",
       "all": "All",
       "active": "Active",
       "waiting": "Waiting",

@@ -282,12 +282,14 @@ onClickOutside(containerRef, handleClickOutside);
 }
 
 .selector-trigger {
-    display: flex;
+    display: grid;
+    grid-template-columns: 20px minmax(0, 1fr) 20px;
+    gap: 8px;
     align-items: center;
     justify-content: center;
     position: relative;
     width: 100%;
-    padding: var(--spacing-sm) 36px;
+    padding: var(--spacing-sm) 14px;
     background-color: var(--color-surface);
     border: var(--border-width) solid var(--color-border);
     border-radius: var(--radius-sm);
@@ -301,7 +303,7 @@ onClickOutside(containerRef, handleClickOutside);
 .icon-wrapper {
     display: flex;
     align-items: center;
-    margin-right: var(--spacing-sm);
+    justify-content: center;
 }
 
 .label-text {
@@ -311,8 +313,7 @@ onClickOutside(containerRef, handleClickOutside);
 }
 
 .chevron {
-    position: absolute;
-    right: 14px;
+    justify-content: center;
     display: flex;
     align-items: center;
     transition: transform 0.2s ease;
@@ -337,11 +338,13 @@ onClickOutside(containerRef, handleClickOutside);
     border-radius: var(--radius-sm);
     box-shadow: var(--shadow-hard);
     z-index: 1000;
-    animation: slideDown 0.15s ease-out;
+
 }
 
 .dropdown-item {
-    display: flex;
+    display: grid;
+    grid-template-columns: 20px minmax(0, 1fr) 20px;
+    gap: 8px;
     align-items: center;
     padding: var(--spacing-sm) var(--spacing-md);
     cursor: pointer;
@@ -366,7 +369,7 @@ onClickOutside(containerRef, handleClickOutside);
 .item-icon {
     display: flex;
     align-items: center;
-    margin-right: var(--spacing-sm);
+    justify-content: center;
     opacity: 0.8;
 }
 
@@ -375,7 +378,7 @@ onClickOutside(containerRef, handleClickOutside);
 }
 
 .item-label {
-    flex: 1;
+    text-align: center;
     font-weight: 500;
     font-size: 0.9rem;
     white-space: nowrap;

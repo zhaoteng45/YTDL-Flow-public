@@ -149,7 +149,7 @@ function contrast(foreground: string, background: string) {
 
 function validateBrand(locale: Locale, theme: string, width: number) {
   const root = getComputedStyle(document.documentElement);
-  const expectedPrimary = { material: '#2457A7', fluent: '#843D4B', 'cobalt-butter': '#30363D' }[theme];
+  const expectedPrimary = { material: '#2457A7', fluent: '#843D4B', 'cobalt-butter': '#B8CCE8' }[theme];
   check(locale, theme, width, root.getPropertyValue('--color-primary').trim().toUpperCase() === expectedPrimary, 'theme uses its approved independent primary');
   const probe = document.createElement('button');
   probe.className = 'neo-button primary';
@@ -158,7 +158,7 @@ function validateBrand(locale: Locale, theme: string, width: number) {
   check(locale, theme, width, contrast(primary.color, primary.backgroundColor) >= 4.5, 'computed primary action pair meets AA');
   probe.className = 'neo-button secondary';
   const secondary = getComputedStyle(probe);
-  const surfaces = { material: 'rgb(246, 248, 252)', fluent: 'rgb(250, 247, 242)', 'cobalt-butter': 'rgb(246, 247, 248)' };
+  const surfaces = { material: 'rgb(246, 248, 252)', fluent: 'rgb(250, 247, 242)', 'cobalt-butter': 'rgb(32, 35, 40)' };
   check(locale, theme, width, secondary.backgroundColor === surfaces[theme as keyof typeof surfaces], 'ordinary secondary uses the approved theme surface');
   check(locale, theme, width, contrast(secondary.color, secondary.backgroundColor) >= 4.5, 'computed secondary pair meets AA');
   check(locale, theme, width, contrast(secondary.borderTopColor, secondary.backgroundColor) >= 3, 'secondary control border meets 3:1');
@@ -195,7 +195,7 @@ async function validate(locale: Locale, theme: string, width: number) {
   const palette = {
     material: ['rgb(226, 232, 241)', 'rgb(36, 87, 167)'],
     fluent: ['rgb(231, 224, 216)', 'rgb(132, 61, 75)'],
-    'cobalt-butter': ['rgb(221, 225, 229)', 'rgb(48, 54, 61)'],
+    'cobalt-butter': ['rgb(23, 25, 29)', 'rgb(184, 204, 232)'],
   }[theme];
   check(locale, theme, width, getComputedStyle(document.body).backgroundColor === palette?.[0], `${label}: approved tinted canvas renders`);
   const primaryProbe = document.createElement('button');
@@ -270,7 +270,7 @@ async function validate(locale: Locale, theme: string, width: number) {
       const groupStyle = getComputedStyle(group);
       check(locale, theme, width, ['rgba(0, 0, 0, 0)', 'rgb(255, 255, 255)'].includes(groupStyle.backgroundColor) && groupStyle.boxShadow === 'none', `${label}: ordinary groups do not add nested gray cards`);
       const heading = group.querySelector('h4');
-      const primaryText = { material: 'rgb(36, 48, 71)', fluent: 'rgb(48, 45, 48)', 'cobalt-butter': 'rgb(38, 43, 50)' }[theme];
+      const primaryText = { material: 'rgb(36, 48, 71)', fluent: 'rgb(48, 45, 48)', 'cobalt-butter': 'rgb(237, 240, 244)' }[theme];
       if (heading) check(locale, theme, width, getComputedStyle(heading).color === primaryText, `${label}: normal group headings use primary text, not brand`);
     }
 

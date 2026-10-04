@@ -128,27 +128,27 @@
 
 /* Internal data-theme id retained so existing saved preferences keep working. */
 [data-theme="cobalt-butter"] {
-  --brand-primary: #30363D;
-  --brand-hover: #242A31;
-  --brand-pressed: #181E25;
-  --brand-soft: #E9EEF4;
-  --neutral-canvas: #DDE1E5;
-  --neutral-surface: #F6F7F8;
-  --neutral-surface-subtle: #E8EBEE;
-  --neutral-text-primary: #262B32;
-  --neutral-text-secondary: #5B646F;
-  --neutral-border: #D2D8DE;
-  --neutral-border-strong: #7C8794;
-  --color-selected-bg: #DBE9F4;
-  --brand-foreground: var(--brand-pressed);
+  --brand-primary: #B8CCE8;
+  --brand-hover: #D0DEF0;
+  --brand-pressed: #A4BCDC;
+  --brand-soft: #28384B;
+  --neutral-canvas: #17191D;
+  --neutral-surface: #202328;
+  --neutral-surface-subtle: #292D33;
+  --neutral-text-primary: #EDF0F4;
+  --neutral-text-secondary: #B4BBC5;
+  --neutral-border: #424851;
+  --neutral-border-strong: #7E8998;
+  --color-selected-bg: #28384B;
+  --brand-foreground: var(--brand-primary);
   --neutral-hover: var(--neutral-surface-subtle);
-  --color-selected-text: #20587D;
-  --graphite-header-bg: #272B30;
-  --graphite-header-text: #F5F7FA;
-  --graphite-header-muted: #C4CED9;
-  --graphite-header-control: #424B55;
-  --graphite-header-focus: #AED7F5;
-  --graphite-progress: #276B9A;
+  --color-selected-text: #D0DEF0;
+  --graphite-header-bg: #202328;
+  --graphite-header-text: #EDF0F4;
+  --graphite-header-muted: #B4BBC5;
+  --graphite-header-control: #292D33;
+  --graphite-header-focus: #B8CCE8;
+  --graphite-progress: #B8CCE8;
   --color-bg: var(--neutral-canvas);
   --color-surface: var(--neutral-surface);
   --color-surface-subtle: var(--neutral-surface-subtle);
@@ -163,6 +163,25 @@
   --radius-lg: 15px;
   --shadow-hard: none;
   --shadow-hard-sm: none;
+  color-scheme: dark;
+  --brand-on-primary: #172537;
+  --semantic-success-bg: #203A2D;
+  --semantic-success-border: #527D63;
+  --semantic-success-text: #A6DEB7;
+  --semantic-success-strong: #A6DEB7;
+  --semantic-warning-bg: #3D3220;
+  --semantic-warning-border: #927B4A;
+  --semantic-warning-text: #E8CC8E;
+  --semantic-danger-bg: #42282C;
+  --semantic-danger-border: #A5656C;
+  --semantic-danger-text: #FFB4BA;
+  --semantic-info-bg: #26364C;
+  --semantic-info-border: #6583AC;
+  --semantic-info-text: #B8CCE8;
+  --semantic-disabled-bg: #292D33;
+  --semantic-disabled-border: #424851;
+  --semantic-disabled-text: #A0A8B5;
+
 }
 
 [data-theme="cobalt-butter"] body {
