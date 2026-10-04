@@ -161,8 +161,8 @@ async function validate(locale: Locale, theme: string, width: number) {
       const textareaRect = textarea.getBoundingClientRect();
       const pasteRect = pasteBtn.getBoundingClientRect();
       check(locale, theme, width, pasteRect.right <= textareaRect.right + 1, `${label}: paste button within textarea right edge`);
-      check(locale, theme, width, pasteRect.top >= textareaRect.top - 1, `${label}: paste button within textarea top edge`);
-      check(locale, theme, width, pasteRect.bottom <= textareaRect.bottom, `${label}: paste button within textarea bottom edge`);
+      check(locale, theme, width, pasteRect.top >= textareaRect.bottom, `${label}: paste button below textarea without overlap`);
+      check(locale, theme, width, pasteRect.left >= textareaRect.left - 1, `${label}: paste button within editor toolbar left edge`);
     }
   }
 

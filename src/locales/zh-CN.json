@@ -539,6 +539,7 @@
     "progress": "进度",
     "quality": {
       "observed": "当前检测最高 {observed}p",
+      "observed_portrait": "当前检测最高 {resolution} · 竖屏",
       "request_limited": "请求 {requested}p；当前环境最高检测到 {observed}p",
       "stale_cookie": "当前 YouTube Cookie 已失效，已使用匿名模式继续。",
       "capabilities": "查看客户端检测结果",

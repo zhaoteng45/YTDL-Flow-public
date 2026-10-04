@@ -5,16 +5,14 @@ import { describe, expect, it } from 'vitest';
 const source = readFileSync(resolve('src/components/InputSection.vue'), 'utf8');
 
 describe('InputSection layout safeguards', () => {
-  it('keeps the textarea as a single control with absolute-positioned utility buttons inside the shell', () => {
+  it('keeps the textarea as a single control with utility buttons flowing below the editor', () => {
     expect(source).toMatch(/<div class="input-field-shell">[\s\S]*<textarea[^>]*class="neo-input neo-textarea"[\s\S]*<div class="input-actions">/);
     expect(source).toMatch(/\.input-field-shell\s*\{[\s\S]*position:\s*relative;/);
-    expect(source).toMatch(/\.input-actions\s*\{[\s\S]*position:\s*absolute;/);
-    expect(source).toMatch(/\.input-actions\s*\{[\s\S]*top:\s*(?:8px|10px|12px);/);
-    expect(source).toMatch(/\.input-actions\s*\{[\s\S]*right:\s*(?:8px|10px|12px);/);
+    expect(source).toMatch(/\.input-actions\s*\{[\s\S]*position:\s*static;/);
   });
 
-  it('reserves enough right padding for the utility buttons without overlaying placeholder text', () => {
-    expect(source).toMatch(/\.neo-textarea\s*\{[\s\S]*padding-right:\s*(?:108px|112px|116px|120px);/);
+  it('uses full editor width now that utility buttons cannot overlay placeholder text', () => {
+    expect(source).toMatch(/\.neo-textarea\s*\{[\s\S]*padding-right:\s*16px;/);
     expect(source).toMatch(/\.neo-textarea\s*\{[\s\S]*word-break:\s*break-word;/);
     expect(source).toMatch(/\.neo-textarea\s*\{[\s\S]*overflow-wrap:\s*anywhere;/);
   });

@@ -539,6 +539,7 @@
     "progress": "Progress",
     "quality": {
       "observed": "Highest observed: {observed}p",
+      "observed_portrait": "Highest observed: {resolution} · portrait",
       "request_limited": "Requested {requested}p; this environment exposed up to {observed}p",
       "stale_cookie": "Your YouTube cookies have expired. Continuing anonymously.",
       "capabilities": "Client capability results",

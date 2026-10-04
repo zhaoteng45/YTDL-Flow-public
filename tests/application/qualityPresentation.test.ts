@@ -8,6 +8,13 @@ it('labels observed maximum and explains unmet requests without claiming a sourc
   expect(qualityMessage({ observedMaxHeight: 1080 }, 'best').key).toBe('download_list.quality.observed');
 });
 
+it('describes an observed portrait format with dimensions instead of an ambiguous p label', () => {
+  expect(qualityMessage({ observedMaxHeight: 1920, width: 1080, height: 1920 }, 'best'))
+    .toEqual({ key: 'download_list.quality.observed_portrait', params: { resolution: '1080×1920' } });
+  expect(qualityMessage({ observedMaxHeight: 2160, width: 1080, height: 1920 }, 'best').key)
+    .toBe('download_list.quality.observed');
+});
+
 it('redacts exported profile/temp paths while retaining client and format diagnosis', () => {
   const log = String.raw`C:\Users\Alice\AppData\Local\Temp\ytdl_flow_cookies_123.txt client=mweb format=399+251 bun=1.4.2`;
   const redacted = redactSensitiveText(log);

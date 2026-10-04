@@ -1292,8 +1292,8 @@ const getProgressColor = (status: TaskPresentationRow['status']) => {
 }
 
 .download-card.is-card-focused {
-  outline: 2px solid var(--color-text);
-  outline-offset: 1px;
+  outline: 1px solid var(--color-primary);
+  outline-offset: 2px;
 }
 
 /* Unified Queue List Shell */

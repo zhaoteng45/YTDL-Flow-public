@@ -12,16 +12,25 @@ declare global {
   interface Window { __YTDL_SHELL_GEOMETRY__?: Record<string, unknown> }
 }
 
-const settle = async () => { await nextTick(); await new Promise(resolve => setTimeout(resolve, 100)); };
+const settle = async () => {
+  await nextTick();
+  await new Promise(resolve => setTimeout(resolve, 100));
+  // Measure final colors, not a frame inside the theme color transition.
+  await Promise.all(document.getAnimations()
+    .filter(animation => Number.isFinite(animation.effect?.getComputedTiming().endTime))
+    .map(animation => animation.finished.catch(() => undefined)));
+};
 async function run() {
   const params = new URLSearchParams(location.search);
   const theme = params.get('theme') as AppTheme;
   const state = params.get('state') ?? 'empty';
+  if (params.get('locale') === 'en-US') i18n.global.locale.value = 'en-US';
   const pinia = createPinia();
   const app = createApp(App).use(pinia).use(i18n);
   app.mount('#app');
   await settle();
   useAppStore(pinia).setTheme(theme);
+  if (params.has('review')) useAppStore(pinia).extraArgs.cookies = 'C:/fixtures/cookies-www.youtube.com.json';
   await settle();
   if (state === 'active') {
     // Use production input → CurrentTaskService, not a duplicated fixture owner.
@@ -72,9 +81,20 @@ async function run() {
   const rect = layout.getBoundingClientRect();
   const sr = sidebar.getBoundingClientRect();
   const mr = main.getBoundingClientRect();
+  if (params.has('review')) {
+    const label = document.querySelector<HTMLElement>('.selector-trigger .label-text')!;
+    check('theme name is centered', getComputedStyle(label).textAlign === 'center');
+    const cookie = document.querySelector<HTMLElement>('.cookie-title-text')!;
+    check('cookie heading is not truncated', cookie.scrollWidth <= cookie.clientWidth + 1);
+    const inputBounds = document.querySelector('textarea')!.getBoundingClientRect();
+    const actions = document.querySelector('.input-actions')!.getBoundingClientRect();
+    check('input tools do not overlap editable text', actions.top >= inputBounds.bottom - 1);
+    if (innerWidth > 980) check('composer stays on the left in all themes and states', sr.right <= mr.left + 1);
+    if (innerWidth >= 1920 && state === 'empty') check('wide empty workspace uses available width', rect.width >= 1400);
+  }
   const composer = document.querySelector<HTMLElement>('.sidebar-panel')!;
   const composerBackground = getComputedStyle(composer).backgroundColor;
-  const expectedSurface = { material: 'rgb(252, 253, 255)', fluent: 'rgb(255, 253, 250)', 'cobalt-butter': 'rgb(254, 254, 254)' }[theme];
+  const expectedSurface = { material: 'rgb(246, 248, 252)', fluent: 'rgb(250, 247, 242)', 'cobalt-butter': 'rgb(246, 247, 248)' }[theme];
   check('composer uses the approved light working surface', composerBackground === expectedSurface ||
     (composerBackground === 'rgba(0, 0, 0, 0)' && getComputedStyle(sidebar).backgroundColor === expectedSurface));
   check('row count projects requested workspace state', layout.dataset.workspaceState === state);
@@ -92,14 +112,14 @@ async function run() {
     const brand = document.querySelector<HTMLImageElement>('.brand-logo');
     check('formal logo is loaded and leads compact wordmark', Boolean(brand?.complete && brand.naturalWidth && brand.getBoundingClientRect().height >= 40));
     const er = document.querySelector('.empty-state')!.getBoundingClientRect();
-    check('empty composition is bounded at 2K', rect.width <= (theme === 'fluent' ? 1240 : 1180) + 1);
+    check('empty composition stays bounded on large desktops', rect.width <= 1680 + 1);
     // Round-three native brief permits an expressive supporting plane; budget is
     // 540px beside the composer, 200px for the stacked workflow ribbon.
-    check('empty guide fits its horizontal or ribbon budget', er.height <= (theme !== 'material' && innerWidth > 980 ? 540 : 200) && er.width <= 1240);
+    check('empty guide fits its horizontal or ribbon budget', er.height <= (innerWidth > 980 ? 540 : 200) && er.width <= 1240);
     check('guide has no competing primary action', !document.querySelector('.empty-state .primary'));
-    if (theme !== 'material' && innerWidth > 980) {
+    if (innerWidth > 980) {
       check('empty workbench does not stretch to fill the viewport', rect.height <= Math.max(sr.height, mr.height) + 2);
-      check('theme-specific horizontal composition', theme === 'cobalt-butter' ? mr.right <= sr.left + 1 : sr.right <= mr.left + 1);
+      check('composer leads horizontal composition in every theme', sr.right <= mr.left + 1);
     } else {
       check('empty start surface has no stretched inter-pane void', mr.top - sr.bottom <= 40 && rect.height <= sr.height + mr.height + 40);
       check('composer leads guidance in a vertical start surface', sr.bottom <= mr.top + 1);
@@ -123,7 +143,7 @@ async function run() {
     check('active task workspace has usable content width', mr.width >= (wide ? 500 : innerWidth - 100));
     if (wide) {
       check('active operation pane stays within brief', sr.width >= 320 && sr.width <= 380);
-      check('active pane placement follows theme', theme === 'material' ? mr.right <= sr.left + 1 : sr.right <= mr.left + 1);
+      check('active operation pane stays on the left in every theme', sr.right <= mr.left + 1);
     } else {
       check('narrow active workspace stacks support before tasks', sr.bottom <= mr.top + 1);
     }

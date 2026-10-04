@@ -14,19 +14,21 @@ Empty 围绕 Compose / Start，Active 围绕任务管理。data-workspace-state 
 
 | 主题 | Empty | Active | 材料与字形 |
 | --- | --- | --- | --- |
-| YTDL Graphite | 左 typography 起始区 + 右 Composer；窄屏堆叠 | 350px 支持栏 + 主任务区 | 中性石墨、扁平、分隔线与字重优先；减少常驻面板装饰 |
-| YTDL Fluent | 左 Command surface + 右流程支持区 | 328px 操作栏 + 主任务区 | opaque 中性层、Windows 密度、小/中圆角、精确边框；无壁纸渐变 |
-| YTDL Clean | 白色宽 Composer + 下方中性流程 ribbon | 主任务区 + 340–360px 右支持栏 | 宽松间距、柔和/适中圆角、普通标题为正文色；CTA 承载品牌强调 |
+| 石墨 | 左 Composer + 右流程说明；窄屏堆叠 | 350px 左操作栏 + 主任务区 | 中性石墨、扁平、分隔线与字重优先；减少常驻面板装饰 |
+| 酒红 | 左 Composer + 右流程说明；窄屏堆叠 | 350px 左操作栏 + 主任务区 | opaque 中性层、Windows 密度、小/中圆角、精确边框；无壁纸渐变 |
+| 蓝宝石 | 左 Composer + 右流程说明；窄屏堆叠 | 350px 左操作栏 + 主任务区 | 柔和圆角、普通标题为正文色；CTA 承载品牌强调 |
 
 ## 逻辑窗口与 DPI
 
 物理分辨率不是 CSS viewport：3840×2160 @300% 约为 1280×720 逻辑桌面，还需扣除 Windows 标题栏与任务栏。布局以实际内容区 CSS px 为准，不根据 DPR 成比例缩放控件。
 
 - Compact ≤980px：Empty 的 Composer 在前、辅助流程 ribbon 在后；Active 采用浅命令条 + 主任务区，任务区独立滚动。
-- Medium 981–1439px：Graphite / Fluent 的双面起始构图；Clean 保持桌面 Composer + ribbon。Active 三主题都保留任务/支持双栏，不在中等宽度误用高大的纵向操作墙。
+- Medium 981–1439px：三主题共用 Composer 在左、说明在右的起始构图。Active 保留左操作栏与右任务区，切换主题不移动操作位置。
 - Wide ≥1440px：Empty 有界，Active 使用余下空间承载任务；不把宽屏空态拉成巨型空白卡。
 - Short ≤740px：减少面板 padding、textarea 高度和辅助信息占用；保留 44px 目标与 Logo。≤620px Clean 的辅助说明收起，但流程与核心控件保留。
 - Regular 741–899px：常规排版预算。Tall ≥900px 且 Wide：增加顶部呼吸空间，不放大控件。
+
+首页宽度上限为 1680 CSS px，外层工作区上限为 1800px；以 1920×1080 和 2560×1440 逻辑窗口回归验证，避免旧 1060–1240px 上限造成内容过度收窄。Header Logo 常规 56px，短窗口 44px。活动区预留 104px：Header 64px、容器上下 padding 24px、顶部间隔 12px 与边框余量 4px。链接按钮位于编辑区下方，保持 44px 点击目标；Cookies 标题、状态和文件名分行。短且窄的空首页收起说明区重复粘贴按钮，编辑区粘贴操作始终保留。
 - Settings 导航始终可用，内容局部滚动；Logs ≤min(340px, 38dvh)，长日志不拖长页面。禁止以整页 overflow:hidden 裁控件。
 
 三套主题采用独立配色。Sapphire primary / hover / pressed 为 #2457A7 / #1C468B / #16386E，selected #DCE7F8。Wine 为 #843D4B / #71313E / #5E2633，selected #EBD4D9。Ink 为 #30363D / #242A31 / #181E25，selected #DBE9F4 与 #20587D 文字，进度 #276B9A；深色顶栏 #272B30、控件 #424B55、前景 #F5F7FA、焦点 #AED7F5。主按钮前景为 #FFFFFF。品牌 Logo 保留正式原始颜色，不随主题变色。placeholder 不通过 opacity 降低 AA 对比度。

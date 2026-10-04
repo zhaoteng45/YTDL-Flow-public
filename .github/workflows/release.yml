@@ -115,6 +115,14 @@ jobs:
           $files = @(Get-ChildItem "$env:RUNNER_TEMP/verified-release" -File | ForEach-Object FullName)
           gh release create "v$version" @files --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --draft --title "YTDL-Flow $version" --notes-file docs/RELEASE_INSTALLER_NOTES.md
           if ($LASTEXITCODE -ne 0) { throw 'Draft release upload failed' }
+      - name: Upload validation installer
+        if: success() && github.event_name == 'workflow_dispatch' && inputs.prepare_release != true
+        uses: actions/upload-artifact@v4
+        with:
+          name: validation-installer
+          path: src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi
+          if-no-files-found: error
+          retention-days: 7
       - name: Upload acceptance reports
         if: always()
         uses: actions/upload-artifact@v4

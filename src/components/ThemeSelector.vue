@@ -284,9 +284,10 @@ onClickOutside(containerRef, handleClickOutside);
 .selector-trigger {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: center;
+    position: relative;
     width: 100%;
-    padding: var(--spacing-sm) var(--spacing-md);
+    padding: var(--spacing-sm) 36px;
     background-color: var(--color-surface);
     border: var(--border-width) solid var(--color-border);
     border-radius: var(--radius-sm);
@@ -304,13 +305,14 @@ onClickOutside(containerRef, handleClickOutside);
 }
 
 .label-text {
-    flex: 1;
-    text-align: left;
+    text-align: center;
     font-weight: 600;
     font-size: 0.9rem;
 }
 
 .chevron {
+    position: absolute;
+    right: 14px;
     display: flex;
     align-items: center;
     transition: transform 0.2s ease;

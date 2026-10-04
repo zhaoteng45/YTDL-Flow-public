@@ -1,6 +1,16 @@
 import { runUiMatrix } from './ui-matrix-runner.mjs';
 
 const themes = ['cobalt-butter', 'fluent', 'material'];
+if (process.argv.includes('--layout-review')) {
+  const auditCases = themes.flatMap(theme => ['zh-CN', 'en-US'].flatMap(locale =>
+    [[900, 640], [1280, 640], [1920, 1080], [2560, 1440]].flatMap(([width, height]) => ['empty', 'active'].map(state => ({
+      name: `${theme}-${locale}-${state}-${width}x${height}.png`, width, height,
+      query: `?theme=${theme}&state=${state}&locale=${locale}&review=1`,
+    })))));
+  await runUiMatrix({ harnessPath: '/tests/ui/app-shell-geometry.html', resultGlobal: '__YTDL_SHELL_GEOMETRY__',
+    outDirName: 'layout-review', auditCases, timeoutMs: 60000 });
+  process.exit(process.exitCode ?? 0);
+}
 if (process.argv.includes('--menu-edge')) {
   const auditCases = themes.flatMap(theme => ['zh-CN', 'en-US'].flatMap(locale => ['format', 'more'].map(menu => ({
     name: `${theme}-${locale}-${menu}-edge.png`, width: 1276, height: 567,

@@ -357,6 +357,8 @@ defineExpose({
                 </template>
                 <template v-else>{{ t('input.cookie_file_label') }}</template>
               </span>
+            </div>
+            <div class="cookie-state-line">
               <span v-if="extraArgs.cookies" class="pot-status-badge pot-idle" :title="t(`input.cookie_state.${cookieInspectionState}`)">
                 <span class="status-pulse-dot"></span>
                 {{ t(`input.cookie_state.${cookieInspectionState}`) }}
@@ -433,7 +435,7 @@ defineExpose({
   min-height: 112px;
   resize: vertical;
   padding: 14px 16px;
-  padding-right: 116px;
+  padding-right: 16px;
   font-family: var(--font-mono);
   font-size: max(1rem, 16px);
   line-height: 1.6;
@@ -500,11 +502,11 @@ defineExpose({
 }
 
 .input-actions {
-  position: absolute;
-  top: 10px;
-  right: 10px;
+  position: static;
   z-index: 2;
   display: flex;
+  justify-content: flex-end;
+  margin-top: 6px;
   align-items: center;
   gap: 6px;
 }

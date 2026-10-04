@@ -303,7 +303,6 @@ onUnmounted(async () => {
         <!-- Empty State -->
         <section v-if="tasks.length === 0" class="empty-state-shell">
           <div class="empty-state neo-box">
-            <img class="workspace-brand" :src="brandLogo" alt="" aria-hidden="true" width="96" height="96" />
             <h3>{{ t('app.workspace_hero') }}</h3>
             <p>{{ t('app.start_guide') }}</p>
             <div class="empty-actions">
