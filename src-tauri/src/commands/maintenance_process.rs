@@ -13,6 +13,13 @@ pub(super) fn bounded_output(command: &mut Command, timeout: Duration) -> std::i
     // File-backed output avoids filling a pipe while waiting for process exit.
     let mut stdout = tempfile::tempfile()?;
     let mut stderr = tempfile::tempfile()?;
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        use windows_sys::Win32::System::Threading::{CREATE_NO_WINDOW, CREATE_SUSPENDED};
+        // Contain the process before any user code or launcher child can run.
+        command.creation_flags(CREATE_NO_WINDOW | CREATE_SUSPENDED);
+    }
     let mut child = command
         .stdout(Stdio::from(stdout.try_clone()?))
         .stderr(Stdio::from(stderr.try_clone()?))
@@ -21,7 +28,14 @@ pub(super) fn bounded_output(command: &mut Command, timeout: Duration) -> std::i
     let job = {
         use std::os::windows::io::AsRawHandle;
         match crate::release_smoke_job::contain_process(child.as_raw_handle()) {
-            Ok(job) => job,
+            Ok(job) => {
+                if let Err(error) = resume_owned_process(child.id()) {
+                    cleanup_until_confirmed(|| stop_job(&job).map_err(|error| error.to_string()));
+                    child.wait()?;
+                    return Err(error);
+                }
+                job
+            }
             Err(error) => {
                 child.kill()?;
                 child.wait()?;
@@ -71,6 +85,46 @@ pub(super) fn bounded_output(command: &mut Command, timeout: Duration) -> std::i
         stdout: out,
         stderr: err,
     })
+}
+
+#[cfg(windows)]
+fn resume_owned_process(pid: u32) -> std::io::Result<()> {
+    use std::os::windows::io::{AsRawHandle, FromRawHandle, OwnedHandle};
+    use windows_sys::Win32::Foundation::INVALID_HANDLE_VALUE;
+    use windows_sys::Win32::System::Diagnostics::ToolHelp::{
+        CreateToolhelp32Snapshot, Thread32First, Thread32Next, TH32CS_SNAPTHREAD, THREADENTRY32,
+    };
+    use windows_sys::Win32::System::Threading::{OpenThread, ResumeThread, THREAD_SUSPEND_RESUME};
+    // std::process retains the process handle, but not the initial thread handle.
+    // A suspended new process has only its initial thread; select it by owned PID.
+    unsafe {
+        let raw = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+        if raw == INVALID_HANDLE_VALUE {
+            return Err(std::io::Error::last_os_error());
+        }
+        let snapshot = OwnedHandle::from_raw_handle(raw);
+        let mut entry: THREADENTRY32 = std::mem::zeroed();
+        entry.dwSize = std::mem::size_of_val(&entry) as u32;
+        let mut has_entry = Thread32First(snapshot.as_raw_handle(), &mut entry) != 0;
+        while has_entry {
+            if entry.th32OwnerProcessID == pid {
+                let raw_thread = OpenThread(THREAD_SUSPEND_RESUME, 0, entry.th32ThreadID);
+                if raw_thread.is_null() {
+                    return Err(std::io::Error::last_os_error());
+                }
+                let thread = OwnedHandle::from_raw_handle(raw_thread);
+                if ResumeThread(thread.as_raw_handle()) == u32::MAX {
+                    return Err(std::io::Error::last_os_error());
+                }
+                return Ok(());
+            }
+            has_entry = Thread32Next(snapshot.as_raw_handle(), &mut entry) != 0;
+        }
+        Err(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            "Owned maintenance process thread was not found",
+        ))
+    }
 }
 
 #[cfg(windows)]
@@ -127,6 +181,34 @@ fn cleanup_until_confirmed(mut cleanup: impl FnMut() -> Result<(), String>) {
 mod tests {
     use super::*;
     use std::os::windows::process::CommandExt;
+
+    #[test]
+    fn immediately_spawned_descendant_is_stopped_before_returning() {
+        use std::os::windows::io::{AsRawHandle, FromRawHandle, OwnedHandle};
+        use windows_sys::Win32::Foundation::WAIT_OBJECT_0;
+        use windows_sys::Win32::System::Threading::{
+            OpenProcess, WaitForSingleObject, SYNCHRONIZE,
+        };
+        let output = bounded_output(Command::new("powershell").args([
+            "-NoProfile", "-NonInteractive", "-Command",
+            "$p=Start-Process powershell -WindowStyle Hidden -PassThru -ArgumentList '-NoProfile','-Command','Start-Sleep -Seconds 60'; Write-Output $p.Id",
+        ]), INSPECTION_TIMEOUT).unwrap();
+        assert!(output.status.success());
+        let pid = String::from_utf8_lossy(&output.stdout)
+            .trim()
+            .parse::<u32>()
+            .unwrap();
+        unsafe {
+            let raw = OpenProcess(SYNCHRONIZE, 0, pid);
+            if !raw.is_null() {
+                let process = OwnedHandle::from_raw_handle(raw);
+                assert_eq!(
+                    WaitForSingleObject(process.as_raw_handle(), 5000),
+                    WAIT_OBJECT_0
+                );
+            }
+        }
+    }
 
     #[test]
     fn cleanup_failure_is_retried_before_returning() {
