@@ -2,7 +2,7 @@
 //! Only a loopback media fixture is accepted. Normal launches never enter here.
 use crate::models::{DownloadOutcome, DownloadRequest, DownloadType, ExtraArgs};
 use crate::services::download::DownloadService;
-use crate::state::DownloadState;
+use crate::state::{DownloadState, ToolActivityGuard};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use std::path::Path;
@@ -72,7 +72,6 @@ async fn check(app: &AppHandle, request_file: &Path) -> Result<serde_json::Value
         return Err("Installed analysis returned no title".into());
     }
     let registry = app.state::<DownloadState>().inner().clone();
-    let _activity = registry.begin_tool_activity()?;
     let id = "release-smoke-download".to_string();
     registry.begin_execution(id.clone())?;
     let result = DownloadService::download_video(
@@ -117,7 +116,7 @@ async fn check(app: &AppHandle, request_file: &Path) -> Result<serde_json::Value
     }))
 }
 
-pub async fn run(app: AppHandle, request_file: std::path::PathBuf) {
+pub async fn run(app: AppHandle, request_file: std::path::PathBuf, _activity: ToolActivityGuard) {
     // Production download watchdog is 180s. 240s allows cleanup before the
     // external CI process timeout (300s); a timeout is a failure, never a skip.
     let result = tokio::time::timeout(

@@ -14,6 +14,16 @@ const tauriConfig = JSON.parse(readFileSync(resolve('src-tauri/tauri.conf.json')
 const capabilities = readFileSync(resolve('src-tauri/capabilities/default.json'), 'utf8');
 
 describe('native media-tool safety contracts', () => {
+  it('reserves smoke tool activity before the frontend can inspect tools and holds it through the run', () => {
+    const startup = readFileSync(resolve('src-tauri/src/lib.rs'), 'utf8');
+    const smoke = readFileSync(resolve('src-tauri/src/release_smoke.rs'), 'utf8');
+    const reservation = startup.indexOf('let smoke_activity = if smoke_request.is_some()');
+    expect(reservation).toBeGreaterThan(0);
+    expect(reservation).toBeLessThan(startup.indexOf('tauri::Builder::default()'));
+    expect(startup).toContain('release_smoke::run(handle, request_file, activity)');
+    expect(smoke).toMatch(/pub async fn run\([\s\S]*?_activity: ToolActivityGuard/);
+    expect(smoke).not.toContain('registry.begin_tool_activity()?');
+  });
   it('never kills yt-dlp or ffmpeg globally by image name', () => {
     expect(commands).not.toMatch(/taskkill[\s\S]{0,240}\/IM/);
     expect(commands).toMatch(/ExecutablePath/);

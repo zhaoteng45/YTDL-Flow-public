@@ -61,11 +61,23 @@ fn set_dpi_awareness() {
 pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     let smoke_request =
         release_smoke_input::smoke_request_path(&std::env::args().collect::<Vec<_>>())?;
+    let download_state = DownloadState::default();
+    // Reserve before creating the WebView: its startup health inspection uses
+    // the same exclusion registry as the native smoke analysis/download.
+    let smoke_activity = if smoke_request.is_some() {
+        Some(
+            download_state
+                .begin_tool_activity()
+                .map_err(std::io::Error::other)?,
+        )
+    } else {
+        None
+    };
     #[cfg(target_os = "windows")]
     set_dpi_awareness();
 
     tauri::Builder::default()
-        .manage(DownloadState::default())
+        .manage(download_state)
         .manage(CaptureRuntime::new())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_shell::init())
@@ -98,9 +110,9 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
             // Create NotificationManager after app is built (requires AppHandle)
             let notification_manager = NotificationManager::new(app.handle().clone());
             app.manage(notification_manager);
-            if let Some(request_file) = smoke_request.clone() {
+            if let (Some(request_file), Some(activity)) = (smoke_request, smoke_activity) {
                 let handle = app.handle().clone();
-                tauri::async_runtime::spawn(release_smoke::run(handle, request_file));
+                tauri::async_runtime::spawn(release_smoke::run(handle, request_file, activity));
             }
             Ok(())
         })
