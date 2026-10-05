@@ -82,43 +82,7 @@ jobs:
 
   ui-layout-check:
     name: Browser Layout (Themes & Locales)
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: 1.4.2
-      - name: Install Dependencies
-        run: bun install --frozen-lockfile
-      - name: Input and credential layout
-        run: bun run test:ui-input
-      - name: Settings and credential layout
-        run: bun run test:ui-settings
-      - name: Homepage platform connections
-        run: bun scripts/run-homepage-connections.mjs
-      - name: YouTube browser connection states
-        run: bun scripts/run-youtube-browser-connection.mjs
-      - name: Task states and actions
-        run: bun run test:ui-download-list
-      - name: Empty and active workspace geometry
-        run: bun run test:ui-geometry -- --layout-review
-      - name: Upload browser reports and screenshots
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: browser-layout-evidence
-          include-hidden-files: true
-          if-no-files-found: error
-          path: |
-            .scratch/input-section-ui-matrix/
-            .scratch/settings-panel-ui-matrix/
-            .scratch/homepage-connections/
-            .scratch/youtube-browser-connection/
-            .scratch/download-list-ui-matrix/
-            .scratch/layout-review/
+    uses: ./.github/workflows/browser-layout.yml
 
   backend-check:
     name: Backend (Rust Check & Test)
@@ -166,60 +130,16 @@ jobs:
       - name: Cargo Clippy
         run: |
           cd src-tauri
-          cargo clippy --locked --target x86_64-pc-windows-msvc -- -D warnings
+          cargo clippy --locked --all-targets --target x86_64-pc-windows-msvc -- -D warnings
 
       - name: Cargo Test
         run: |
           cd src-tauri
           cargo test --locked --target x86_64-pc-windows-msvc --verbose
 
-  desktop-packaging-smoke:
-    name: Desktop Packaging Smoke
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: 1.4.2
-
-      - name: Cache Bun dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: x86_64-pc-windows-msvc
-
-      - name: Rust Cache
-        uses: swatinem/rust-cache@v2
-        with:
-          workspaces: src-tauri
-
-      - name: Install Dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Mock Sidecars
-        run: bun scripts/mock-sidecars.mjs --target x86_64-pc-windows-msvc
-
-      - name: Setup Sidecars
-        run: bun scripts/setup-sidecars.mjs --target x86_64-pc-windows-msvc
-
-      - name: Build Desktop App
-        run: bun run tauri:build --target x86_64-pc-windows-msvc --bundles msi --config '{"bundle":{"createUpdaterArtifacts":false}}'
-
   windows-install-trust:
     name: Windows Install Trust
-    needs: [version-check, frontend-check, backend-check]
+    needs: [version-check, frontend-check, backend-check, ui-layout-check]
     runs-on: windows-latest
     env:
       TAURI_TARGET_TRIPLE: x86_64-pc-windows-msvc

@@ -81,7 +81,9 @@ describe('UI matrix report contract', () => {
   });
   it('wires existing browser checks into Windows CI with failure artifacts', () => {
     const workflow = readFileSync('.github/workflows/ci.yml', 'utf8');
-    const job = workflow.split('  ui-layout-check:')[1]?.split(/^  [a-z][a-z-]+:/m)[0] ?? '';
+    expect(workflow).toContain('uses: ./.github/workflows/browser-layout.yml');
+    const shared = readFileSync('.github/workflows/browser-layout.yml', 'utf8');
+    const job = shared.split('  ui-layout-check:')[1]?.split(/^  [a-z][a-z-]+:/m)[0] ?? '';
     expect(job.includes('runs-on: windows-latest')).toBe(true);
     for (const command of ['bun run test:ui-input', 'bun run test:ui-settings', 'bun run test:ui-download-list', 'bun run test:ui-geometry -- --layout-review']) {
       expect(job.includes(command), command).toBe(true);

@@ -19,7 +19,12 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  ui-layout-check:
+    name: Browser Layout (Themes & Locales)
+    uses: ./.github/workflows/browser-layout.yml
+
   verify-installer:
+    needs: [ui-layout-check]
     runs-on: windows-latest
     timeout-minutes: 60
     permissions:
@@ -47,6 +52,8 @@ jobs:
           $PSNativeCommandUseErrorActionPreference = $true
           bun run check:versions
           bun run typecheck
+          bun run typecheck:ui
+          bun run check:repository
           bun run lint
           bun run test
           bun run test:packages

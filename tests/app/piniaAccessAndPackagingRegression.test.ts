@@ -26,14 +26,15 @@ describe('pinia access regression coverage', () => {
   });
 });
 
-describe('desktop packaging smoke workflow', () => {
+describe('real desktop packaging workflow', () => {
   it('stays on windows packaging with an explicit windows target', () => {
-    expect(ciSource).toMatch(/desktop-packaging-smoke:[\s\S]*runs-on:\s+windows-latest/);
-    expect(ciSource).toMatch(/desktop-packaging-smoke:[\s\S]*targets:\s+x86_64-pc-windows-msvc/);
+    expect(ciSource).toMatch(/windows-install-trust:[\s\S]*runs-on:\s+windows-latest/);
+    expect(ciSource).toMatch(/windows-install-trust:[\s\S]*targets:\s+x86_64-pc-windows-msvc/);
     expect(ciSource).toMatch(/bun scripts\/mock-sidecars\.mjs --target x86_64-pc-windows-msvc/);
     expect(ciSource).toMatch(/bun scripts\/setup-sidecars\.mjs --target x86_64-pc-windows-msvc/);
-    expect(ciSource).toMatch(/bun run tauri:build --target x86_64-pc-windows-msvc/);
-    expect(ciSource).not.toMatch(/desktop-packaging-smoke:[\s\S]*runs-on:\s+ubuntu/);
-    expect(ciSource).not.toMatch(/desktop-packaging-smoke:[\s\S]*x86_64-unknown-linux-gnu/);
+    expect(ciSource).toContain('scripts/build-release-installer.ps1');
+    expect(readFileSync(resolve('scripts/build-release-installer.ps1'), 'utf8')).toContain('bun run tauri:build --target x86_64-pc-windows-msvc');
+    expect(ciSource).not.toMatch(/windows-install-trust:[\s\S]*runs-on:\s+ubuntu/);
+    expect(ciSource).not.toMatch(/windows-install-trust:[\s\S]*x86_64-unknown-linux-gnu/);
   });
 });

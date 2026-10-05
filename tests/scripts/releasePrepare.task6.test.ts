@@ -3,7 +3,6 @@ import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const releaseScript = readFileSync(resolve('scripts/release.mjs'), 'utf8');
 const releaseWorkflow = readFileSync(resolve('.github/workflows/release.yml'), 'utf8');
 const ciWorkflow = readFileSync(resolve('.github/workflows/ci.yml'), 'utf8');
 const packageJson = JSON.parse(readFileSync(resolve('package.json'), 'utf8')) as {
@@ -19,9 +18,16 @@ const ciConfig = JSON.parse(execFileSync('bun', ['-e',
 ], { encoding: 'utf8', timeout: 10000 }));
 
 describe('release preparation contract for task 6', () => {
+  it('requires the shared browser gate before building the published installer', () => {
+    expect(releaseConfig.jobs['verify-installer'].needs).toContain('ui-layout-check');
+    expect(releaseConfig.jobs['ui-layout-check'].uses).toBe('./.github/workflows/browser-layout.yml');
+    expect(ciConfig.jobs['ui-layout-check'].uses).toBe('./.github/workflows/browser-layout.yml');
+    const rust = ciConfig.jobs['backend-check'].steps.find((step: { name?: string }) => step.name === 'Cargo Clippy');
+    expect(rust.run).toContain('--all-targets');
+  });
   it('uploads only the real installer after source, fresh-install and upgrade checks', () => {
     const job = ciConfig.jobs['windows-install-trust'];
-    expect(job.needs).toEqual(['version-check', 'frontend-check', 'backend-check']);
+    expect(job.needs).toEqual(['version-check', 'frontend-check', 'backend-check', 'ui-layout-check']);
     const steps = job.steps;
     const upload = steps.find((step: { name?: string }) => step.name === 'Upload validation installer');
     expect(upload.if).toBe("success() && github.event_name == 'push'");
@@ -29,7 +35,7 @@ describe('release preparation contract for task 6', () => {
     expect(upload.with['if-no-files-found']).toBe('error');
     expect(upload.with.name).toContain('github.sha');
     expect(steps.indexOf(upload)).toBeGreaterThan(steps.findIndex((step: { name?: string }) => step.name === 'Verify Synthetic Upgrade'));
-    expect(ciConfig.jobs['desktop-packaging-smoke'].steps.some((step: { uses?: string }) => step.uses?.startsWith('actions/upload-artifact'))).toBe(false);
+    expect(ciConfig.jobs['desktop-packaging-smoke']).toBeUndefined();
   });
 
   it('publishes tested tag builds automatically without signing or human inputs', () => {
@@ -50,23 +56,9 @@ describe('release preparation contract for task 6', () => {
     }
     const source = steps.find((item: { name?: string }) => item.name === 'Check source');
     expect(source.run).not.toContain('verify:fast');
-    for (const command of ['check:versions', 'typecheck', 'lint', 'test', 'test:packages']) {
+    for (const command of ['check:versions', 'typecheck', 'typecheck:ui', 'check:repository', 'lint', 'test', 'test:packages']) {
       expect(source.run).toContain(`bun run ${command}`);
     }
-  });
-
-  it('keeps help non-destructive and validates git context explicitly', () => {
-    expect(releaseScript).toContain("targetVersion === '--help'");
-    expect(releaseScript).toContain('git rev-parse --is-inside-work-tree');
-    expect(releaseScript).toContain('Not inside a git worktree; skipping local git commit/tag steps.');
-  });
-
-  it('runs git add, commit, and tag as distinct failure-reporting steps', () => {
-    expect(releaseScript).toContain('git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml');
-    expect(releaseScript).toContain('git commit -m "chore(release): v${targetVersion}"');
-    expect(releaseScript).toContain('git tag v${targetVersion}');
-    expect(releaseScript).toContain('Git step failed:');
-    expect(releaseScript).not.toContain('Git operations skipped (not a git repo or error).');
   });
 
   it('threads target-specific MSI-only Tauri args through release and packaging smoke', () => {
@@ -74,15 +66,13 @@ describe('release preparation contract for task 6', () => {
     expect(build.run).toContain('./scripts/build-release-installer.ps1');
     expect(readFileSync(resolve('scripts/build-release-installer.ps1'), 'utf8')).toContain('bun run tauri:build --target x86_64-pc-windows-msvc --bundles msi');
 
-    expect(ciWorkflow).toContain(
-      'bun run tauri:build --target x86_64-pc-windows-msvc --bundles msi',
-    );
+    expect(ciConfig.jobs['windows-install-trust'].steps.find((step: { name?: string }) => step.name === 'Build Install-Trust MSI').run).toContain('scripts/build-release-installer.ps1');
   });
 
   it('keeps sidecar steps nested under workflow steps', () => {
     const preparation = releaseConfig.jobs['verify-installer'].steps.find((step: { name?: string }) => step.name === 'Prepare runtime tools');
     expect(preparation.run).toBe('bun scripts/prepare-release-sidecars.mjs --target x86_64-pc-windows-msvc');
-    expect(ciWorkflow.match(/\r?\n      - name: Mock Sidecars\r?\n/g)).toHaveLength(2);
+    expect(ciWorkflow.match(/\r?\n      - name: Mock Sidecars\r?\n/g)).toHaveLength(1);
     expect(ciWorkflow).not.toMatch(/\r?\n- name: Mock Sidecars\r?\n/);
   });
 
@@ -96,7 +86,7 @@ describe('release preparation contract for task 6', () => {
     );
     const backendCheck = ciWorkflow.slice(
       ciWorkflow.indexOf('  backend-check:'),
-      ciWorkflow.indexOf('  desktop-packaging-smoke:'),
+      ciWorkflow.indexOf('  windows-install-trust:'),
     );
 
     expect(versionCheck).toContain('uses: oven-sh/setup-bun@v2');

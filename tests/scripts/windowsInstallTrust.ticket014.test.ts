@@ -18,9 +18,8 @@ describe('TICKET-014 Windows Install Trust contract', () => {
   const packagingSmoke = jobBlock('desktop-packaging-smoke', 'windows-install-trust');
   const installTrust = jobBlock('windows-install-trust');
 
-  it('keeps packaging smoke separate from install trust', () => {
-    expect(packagingSmoke).toContain('name: Desktop Packaging Smoke');
-    expect(packagingSmoke).toContain('Mock Sidecars');
+  it('uses real install trust without a duplicate mock installer build', () => {
+    expect(packagingSmoke).toBe('');
 
     expect(installTrust).toContain('name: Windows Install Trust');
     expect(installTrust).not.toContain('Mock Sidecars');

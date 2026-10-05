@@ -7,26 +7,28 @@ function readJson(path) {
   return JSON.parse(readFileSync(resolve(root, path), 'utf-8'));
 }
 
-function readTomlVersion(path) {
-  const content = readFileSync(resolve(root, path), 'utf-8');
-  const match = content.match(/^version\s*=\s*"(.*)"/m);
-  return match ? match[1] : null;
+function readToml(path) {
+  return Bun.TOML.parse(readFileSync(resolve(root, path), 'utf-8'));
 }
 
 try {
   const pkg = readJson('package.json');
   const tauriConf = readJson('src-tauri/tauri.conf.json');
-  const cargoVersion = readTomlVersion('src-tauri/Cargo.toml');
+  const cargo = readToml('src-tauri/Cargo.toml').package;
+  const roots = readToml('src-tauri/Cargo.lock').package.filter(item => item.name === cargo.name);
+  if (roots.length !== 1) throw new Error('Expected exactly one root package in Cargo.lock');
 
   const vPkg = pkg.version;
   const vTauri = tauriConf.version;
-  const vCargo = cargoVersion;
+  const vCargo = cargo.version;
+  const vLock = roots[0].version;
 
   console.log(`Package: ${vPkg}`);
   console.log(`Tauri:   ${vTauri}`);
   console.log(`Cargo:   ${vCargo}`);
+  console.log(`Lock:    ${vLock}`);
 
-  if (vPkg !== vTauri || vPkg !== vCargo) {
+  if (!vPkg || vPkg !== vTauri || vPkg !== vCargo || vPkg !== vLock) {
     console.error('❌ Versions do not match!');
     process.exit(1);
   }

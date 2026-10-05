@@ -1,0 +1,49 @@
+name: Browser Layout
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  ui-layout-check:
+    name: Browser Layout (Themes & Locales)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - name: Install Dependencies
+        run: bun install --frozen-lockfile
+      - name: Input and credential layout
+        run: bun run test:ui-input
+      - name: Settings and credential layout
+        run: bun run test:ui-settings
+      - name: Homepage platform connections
+        run: bun scripts/run-homepage-connections.mjs
+      - name: YouTube browser connection states
+        run: bun scripts/run-youtube-browser-connection.mjs
+      - name: Task states and actions
+        run: bun run test:ui-download-list
+      - name: Empty and active workspace geometry
+        run: bun run test:ui-geometry -- --layout-review
+      - name: Upload browser reports and screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-layout-evidence
+          include-hidden-files: true
+          if-no-files-found: error
+          path: |
+            .scratch/input-section-ui-matrix/
+            .scratch/settings-panel-ui-matrix/
+            .scratch/homepage-connections/
+            .scratch/youtube-browser-connection/
+            .scratch/download-list-ui-matrix/
+            .scratch/layout-review/
+

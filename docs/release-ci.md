@@ -6,7 +6,7 @@
 
 ## 自动检查范围
 
-1. 版本一致性、类型检查、代码规范、前端与工作区测试，以及 Rust 格式、Clippy 和测试。
+1. 四份版本文件一致性、类型检查、代码规范、前端与工作区测试，以及 Rust 格式、全目标 Clippy 和测试。CI 与 Release 共用主题、语言和布局检查；界面检查失败时，不启动安装包验证或发布。
 2. 校验固定版本运行工具的下载哈希，收集 JavaScript、Rust 与运行工具许可证和来源记录；打包 `licenses/`。
 3. 安装最终 MSI，逐文件核对安装后的许可证哈希，通过已安装应用和随包工具解析并下载本地视频，校验输出文件哈希。
 4. 测试全新安装、卸载及模拟旧版本升级。升级基线采用同一源码构建的旧版本号 MSI，报告标记 `upgradeBaselineKind: synthetic`；不代表所有历史版本的数据迁移都已验证。
@@ -19,7 +19,9 @@
 
 每次发行提供 MSI、`SHA256SUMS.txt`、`release-evidence.json`、第三方声明、运行工具版本清单及源码核查记录。发行说明明确自动测试边界。自动化不覆盖真实网站响应、最终 GUI/DPI 人工检查或全部历史版本设置迁移。
 
-普通 CI 的 Windows Install Trust 在版本、前端和 Rust 检查通过后，执行真实安装包的生命周期测试，上传 `validation-installer-<提交哈希>`。手动验证模式上传 `validation-installer`。测试附件保留 7 天，沿用既有保存周期。使用模拟工具的 Desktop Packaging Smoke 不上传安装包。
+普通 CI 的 Windows Install Trust 在版本、前端、Rust 和界面检查通过后，执行真实安装包的生命周期测试，上传 `validation-installer-<提交哈希>`。手动验证模式上传 `validation-installer`。测试附件保留 7 天，沿用既有保存周期。真实 MSI 已覆盖打包检查，不再单独构建模拟工具安装包。
+
+准备新版本时，在干净的仓库根目录运行 `bun run release:prepare X.Y.Z`。脚本检查版本递增和标签冲突，再同步 package.json、Tauri 配置、Cargo.toml 与根包的 Cargo.lock，创建本地提交和标签。准备期间不要并行修改源码或运行构建；Git 步骤失败时检查遗留改动，不自动重置工作区。
 
 ## 第三方资料
 
