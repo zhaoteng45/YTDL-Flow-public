@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [3.1.9] - 2026-10-05
+## [3.1.10] - 2026-10-05
 
 - 首页增加 YouTube 浏览器登录状态、Cookies 文件导入和哔哩哔哩扫码登录入口。
 - 分别显示网站连接状态，长文件名省略，悬停或键盘聚焦显示完整路径。

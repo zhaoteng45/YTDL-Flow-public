@@ -446,7 +446,8 @@ mod update_atomic_tests {
             for _ in 0..2 {
                 let (mut socket, _) = listener.accept().await.unwrap();
                 let mut request = [0; 1024];
-                socket.read(&mut request).await.unwrap();
+                let bytes_read = socket.read(&mut request).await.unwrap();
+                assert!(bytes_read > 0, "fixture client must send a request");
                 socket.write_all(b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n1\r\na\r\n2\r\nbc\r\n0\r\n\r\n").await.unwrap();
             }
         });
