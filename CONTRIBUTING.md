@@ -25,4 +25,6 @@
 
 仓库保留源码、测试、构建及 CI 配置、必要文档和许可证。安装包通过 Releases 分发；本地 Agent 技能、编辑器状态、缓存和运行报告不提交。提交前运行 `bun run check:repository`；界面测试脚本需通过 `bun run typecheck:ui`。
 
+`check:repository` 检查 Git 暂存区中的路径和对象大小，不受未暂存修改影响。`bun run test` 排除本地 Agent 辅助测试，使本地与 CI 使用相同的公开测试范围。
+
 贡献代码按项目的 [MIT 许可证](LICENSE) 提供，第三方代码应保留原有许可证和来源。

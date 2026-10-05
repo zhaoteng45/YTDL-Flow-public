@@ -1,5 +1,4 @@
 import { execFileSync } from 'node:child_process';
-import { statSync } from 'node:fs';
 
 export function localOnlyReason(file, bytes = 0) {
   if (/^(?:\.agents|\.codex|\.opencode|\.ai-bridge|\.scratch|node_modules|dist)\//.test(file)) return 'local tooling or generated output';
@@ -10,11 +9,24 @@ export function localOnlyReason(file, bytes = 0) {
 }
 
 if (import.meta.main) {
-  const files = execFileSync('git', ['ls-files', '-z'], { encoding: 'utf8' }).split('\0').filter(Boolean);
-  const failures = files.flatMap(file => {
-    const reason = localOnlyReason(file, statSync(file).size);
-    return reason ? [`${file}: ${reason}`] : [];
+  // Read index objects: unstaged edits and missing working files cannot change
+  // what is about to be committed. A clean CI checkout has the same index as HEAD.
+  const entries = execFileSync('git', ['ls-files', '--stage', '-z'], { encoding: 'utf8' })
+    .split('\0').filter(Boolean).map(entry => {
+      const tab = entry.indexOf('\t');
+      const [, oid, stage] = entry.slice(0, tab).split(' ');
+      return { oid, stage, file: entry.slice(tab + 1) };
+    });
+  const sizes = entries.length ? execFileSync('git', ['cat-file', '--batch-check=%(objectsize)'], {
+    encoding: 'utf8', input: entries.map(entry => entry.oid).join('\n') + '\n',
+  }).trim().split(/\r?\n/) : [];
+  const failures = entries.flatMap(({ file, stage }, index) => {
+    if (stage !== '0') return [`${file}: unresolved index conflict`];
+    const bytes = Number(sizes[index]);
+    if (!Number.isSafeInteger(bytes) || bytes < 0) return [`${file}: cannot read staged object size`];
+    const reason = localOnlyReason(file, bytes);
+    return reason ? [`${file}: ${reason} (staged size: ${bytes} bytes)`] : [];
   });
   if (failures.length) { console.error(failures.join('\n')); process.exitCode = 1; }
-  else console.log(`Repository content PASS (${files.length} tracked source/configuration files)`);
+  else console.log(`Repository content PASS (${entries.length} staged source/configuration files)`);
 }
