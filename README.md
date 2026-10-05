@@ -83,7 +83,7 @@ bun run tauri:build
 | `tests/` | 自动化测试 |
 | `docs/` | 开发文档 |
 
-主题修改见 [设计说明](DESIGN_LANGUAGE_GUIDE.md)，贡献方式见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+贡献方式见 [CONTRIBUTING.md](CONTRIBUTING.md)。主题配色与样式位于 `src/styles*.css`，主题清单位于 `src/constants.ts`。
 
 ## 许可证
 

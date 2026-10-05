@@ -6,6 +6,15 @@ import path from 'node:path';
 import { localOnlyReason } from '../../scripts/check-repository-content.mjs';
 
 describe('public repository content', () => {
+  it('keeps public documentation minimal and rejects internal planning records', () => {
+    for (const file of ['CONTEXT.md', 'DESIGN.md', 'DESIGN_LANGUAGE_GUIDE.md', 'PRODUCT.md',
+      'docs/matt/specs/example.md', 'docs/adr/example.md', 'docs/architecture/MIGRATION_HISTORY.md',
+      'docs/reference/settings-ui-checks.md', 'docs/RELEASE_TEMPLATE.md', '.cargo/config.toml',
+      'tests/ui/credentials-layout.prototype.html']) expect(localOnlyReason(file)).not.toBeNull();
+    for (const file of ['README.md', 'CHANGELOG.md', 'CONTRIBUTING.md', 'SECURITY.md',
+      'THIRD_PARTY_NOTICES.md', 'docs/release-ci.md', 'docs/RELEASE_INSTALLER_NOTES.md',
+      'docs/reference/runtime-redistribution-audit-20261004.md']) expect(localOnlyReason(file)).toBeNull();
+  });
   it('checks staged blobs even when working files are smaller or missing', () => {
     const cwd = mkdtempSync(path.join(tmpdir(), 'ytdl-index-check-'));
     const script = path.resolve('scripts/check-repository-content.mjs');

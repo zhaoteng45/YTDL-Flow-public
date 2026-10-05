@@ -3,6 +3,13 @@ import { execFileSync } from 'node:child_process';
 export function localOnlyReason(file, bytes = 0) {
   if (/^(?:\.agents|\.codex|\.opencode|\.ai-bridge|\.scratch|node_modules|dist)\//.test(file)) return 'local tooling or generated output';
   if (/^(?:AGENTS\.md|skills-lock\.json|DESIGN_DOCS_PROMPT_TEMPLATE\.md)$/.test(file)) return 'local agent configuration';
+  if (/^(?:CONTEXT|DESIGN|DESIGN_LANGUAGE_GUIDE|PRODUCT)\.md$/.test(file) ||
+      (/^docs\//.test(file) && ![
+        'docs/release-ci.md', 'docs/RELEASE_INSTALLER_NOTES.md',
+        'docs/reference/runtime-redistribution-audit-20261004.md',
+      ].includes(file))) return 'internal documentation';
+  if (file === '.cargo/config.toml') return 'local development cache configuration';
+  if (/^tests\/ui\/.*\.prototype\.html$/.test(file)) return 'throwaway design prototype';
   if (/(?:^|\/)(?:target|__pycache__)\//.test(file) || /\.(?:exe|dll|msi|zip|7z|log|tmp|pyc)$/i.test(file)) return 'build artifact or cache';
   if (bytes > 50 * 1024 * 1024) return 'file exceeds 50 MiB';
   return null;

@@ -91,3 +91,18 @@ __pycache__/
 /.opencode/
 /tests/agents/
 /docs/reference/active-open-source-downloaders-review-20261005.md
+
+# Public repository: keep internal documentation and dev cache settings local
+/CONTEXT.md
+/DESIGN.md
+/DESIGN_LANGUAGE_GUIDE.md
+/PRODUCT.md
+/.cargo/config.toml
+/docs/*
+!/docs/release-ci.md
+!/docs/RELEASE_INSTALLER_NOTES.md
+!/docs/reference/
+/docs/reference/*
+!/docs/reference/runtime-redistribution-audit-20261004.md
+/tests/ui/*.prototype.html
+/public/vite.svg
