@@ -23,6 +23,8 @@
 
 准备新版本时，在干净的仓库根目录运行 `bun run release:prepare X.Y.Z`。脚本检查版本递增和标签冲突，再同步 package.json、Tauri 配置、Cargo.toml 与根包的 Cargo.lock，创建本地提交和标签。准备期间不要并行修改源码或运行构建；Git 步骤失败时检查遗留改动，不自动重置工作区。
 
+Windows 发行中的 Vitest 使用两个 worker，保留现有测试超时。2026-10-06 的云端运行在默认并行度下出现 Git 大文件检查与 PowerShell 子进程超时；限制并行用于减少争用，成功仍以完整测试结果为准。
+
 ## 第三方资料
 
 `third-party/runtime-source-review.json` 记录固定运行工具版本的源码与构建资料核查状态。yt-dlp PyInstaller 发行包、Gyan FFmpeg 和 Bun 的部分资料仍未齐全，详见 [固定版本核查](reference/runtime-redistribution-audit-20261004.md)。手动安装发行模式附带这些记录，保留 `runtimeReviewComplete: false`，不会把许可证文本收集与哈希校验宣称为完整许可证验收。签名发行证据校验函数仍要求资料完成。

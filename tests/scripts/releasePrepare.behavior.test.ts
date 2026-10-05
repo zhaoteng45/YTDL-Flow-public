@@ -32,6 +32,11 @@ afterEach(() => {
 });
 
 describe('release preparation CLI', () => {
+  it.skipIf(process.platform !== 'win32')('accepts equivalent Windows drive casing at the repository root', () => {
+    const f = fixture();
+    const result = spawnSync('bun', [script, '1.2.4'], { cwd: f.cwd.replace(/^[A-Z]:/, drive => drive.toLowerCase()), encoding: 'utf8', timeout: 10000 });
+    expect(result.status, result.stderr).toBe(0);
+  });
   it('fails the CI version check when the root lock version is stale', () => {
     const f = fixture();
     writeFileSync(join(f.cwd, 'src-tauri/Cargo.lock'), f.read('src-tauri/Cargo.lock').replace('name = "fixture"\nversion = "1.2.3"', 'name = "fixture"\nversion = "1.2.2"'));

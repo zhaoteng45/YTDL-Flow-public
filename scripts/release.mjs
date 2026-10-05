@@ -45,7 +45,7 @@ try {
   const current = versionParts(pkg.version);
   const firstDifference = next.findIndex((part, index) => part !== current[index]);
   if (firstDifference < 0 || next[firstDifference] < current[firstDifference]) throw new Error('New version must be greater than current version');
-  if (path.resolve(git('rev-parse', '--show-toplevel')) !== path.resolve(process.cwd())) throw new Error('Run from the repository root');
+  if (path.relative(path.resolve(git('rev-parse', '--show-toplevel')), path.resolve(process.cwd())) !== '') throw new Error('Run from the repository root');
   if (git('status', '--porcelain')) throw new Error('Worktree must be clean before preparing a release');
   if (git('tag', '--list', `v${targetVersion}`)) throw new Error('Release tag already exists');
   const parent = git('rev-parse', 'HEAD');

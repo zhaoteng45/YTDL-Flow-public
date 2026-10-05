@@ -55,7 +55,9 @@ jobs:
           bun run typecheck:ui
           bun run check:repository
           bun run lint
-          bun run test
+          # Windows Git/PowerShell integration tests exceeded their existing
+          # deadlines under default parallelism; bound contention, keep timeouts.
+          bun run test -- --maxWorkers=2
           bun run test:packages
       - name: Prepare runtime tools
         run: bun scripts/prepare-release-sidecars.mjs --target x86_64-pc-windows-msvc
