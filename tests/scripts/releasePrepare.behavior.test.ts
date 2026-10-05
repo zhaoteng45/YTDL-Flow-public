@@ -32,6 +32,16 @@ afterEach(() => {
 });
 
 describe('release preparation CLI', () => {
+  it('rejects a nested directory even when it contains version files', () => {
+    const f = fixture();
+    const nested = join(f.cwd, 'nested');
+    mkdirSync(join(nested, 'src-tauri'), { recursive: true });
+    for (const file of versionFiles) writeFileSync(join(nested, file), f.read(file));
+    const result = spawnSync('bun', [script, '1.2.4'], { cwd: nested, encoding: 'utf8', timeout: 10000 });
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain('Run from the repository root');
+    expect(f.git('tag', '--list')).toBe('');
+  });
   it.skipIf(process.platform !== 'win32')('accepts equivalent Windows drive casing at the repository root', () => {
     const f = fixture();
     const result = spawnSync('bun', [script, '1.2.4'], { cwd: f.cwd.replace(/^[A-Z]:/, drive => drive.toLowerCase()), encoding: 'utf8', timeout: 10000 });

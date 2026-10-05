@@ -1,10 +1,9 @@
-import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 
 const targetVersion = process.argv[2];
 const files = ['package.json', 'src-tauri/tauri.conf.json', 'src-tauri/Cargo.toml', 'src-tauri/Cargo.lock'];
-const git = (...args) => execFileSync('git', args, { encoding: 'utf8' }).trim();
+const git = (...args) => execFileSync('git', args, { cwd: process.cwd(), encoding: 'utf8' }).trim();
 
 function versionParts(version) {
   if (!/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(version)) throw new Error('Expected a release version X.Y.Z');
@@ -45,7 +44,8 @@ try {
   const current = versionParts(pkg.version);
   const firstDifference = next.findIndex((part, index) => part !== current[index]);
   if (firstDifference < 0 || next[firstDifference] < current[firstDifference]) throw new Error('New version must be greater than current version');
-  if (path.relative(path.resolve(git('rev-parse', '--show-toplevel')), path.resolve(process.cwd())) !== '') throw new Error('Run from the repository root');
+  // Let Git resolve junctions and platform-specific path spelling.
+  if (git('rev-parse', '--show-prefix') !== '') throw new Error('Run from the repository root');
   if (git('status', '--porcelain')) throw new Error('Worktree must be clean before preparing a release');
   if (git('tag', '--list', `v${targetVersion}`)) throw new Error('Release tag already exists');
   const parent = git('rev-parse', 'HEAD');
