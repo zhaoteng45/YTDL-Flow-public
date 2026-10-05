@@ -353,11 +353,15 @@ mod cookie_check_tests {
 
     #[test]
     fn copy_failure_without_lock_evidence_is_not_reported_as_browser_in_use() {
-        let result = classify_cookie_check_output(false,
-            "ERROR: Could not copy Chrome cookie database. See issue 7271 for more info");
+        let result = classify_cookie_check_output(
+            false,
+            "ERROR: Could not copy Chrome cookie database. See issue 7271 for more info",
+        );
         assert_eq!(result.kind, CookieCheckKind::ExecutionFailed);
-        let denied = classify_cookie_check_output(false,
-            "ERROR: Could not copy Chrome cookie database: Permission denied");
+        let denied = classify_cookie_check_output(
+            false,
+            "ERROR: Could not copy Chrome cookie database: Permission denied",
+        );
         assert_eq!(denied.kind, CookieCheckKind::PermissionDenied);
     }
 }

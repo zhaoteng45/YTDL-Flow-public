@@ -86,7 +86,7 @@ async function mount(locale: Locale) {
   const store = useAppStore(pinia);
   store.downloadDir = 'C:/Users/zhao/Downloads/Very Long Media Archive Directory';
   store.systemDownloadDir = 'C:/Users/zhao/Downloads';
-  store.extraArgs.cookies = 'C:\\Cookies\\' + 'long-cookie-name-'.repeat(12) + '.txt';
+  store.setPlatformCookie('youtube', 'C:\\Cookies\\' + 'long-cookie-name-'.repeat(12) + '.txt');
 
   const analyzeEvents: string[][] = [];
   const i18n = createI18n({
@@ -137,15 +137,15 @@ async function validate(locale: Locale, theme: string, width: number) {
 
   check(locale, theme, width, Boolean(wrapper && textarea && analyze && directory && openDirectory), `${label}: primary controls render`);
   const credential = host.querySelector<HTMLElement>('.cookie-path-preview');
-  const cookieName = host.querySelector<HTMLElement>('.cookie-title-text');
+  const cookieName = host.querySelector<HTMLElement>('.platform-connection-summary .platform-source');
   check(locale, theme, width, Boolean(credential?.dataset.cookiePath?.startsWith('C:\\Cookies\\')), `${label}: complete path available`);
   check(locale, theme, width, Boolean(cookieName && getComputedStyle(cookieName).textOverflow === 'ellipsis'), `${label}: long filename uses ellipsis`);
-  host.querySelector<HTMLButtonElement>('.cookie-select-btn')?.focus();
+  host.querySelector<HTMLElement>('.platform-connection-summary')?.focus();
   check(locale, theme, width, Boolean(credential && getComputedStyle(credential, '::after').display === 'block'), `${label}: keyboard focus shows full path`);
   for (const filename of ['c.txt', '登录凭据.txt', 'long-cookie-name-'.repeat(12) + '.txt']) {
-    store.extraArgs.cookies = `C:\\Cookies\\${filename}`;
+    store.setPlatformCookie('youtube', `C:\\Cookies\\${filename}`);
     await settle();
-    const name = host.querySelector<HTMLElement>('.cookie-title-text');
+    const name = host.querySelector<HTMLElement>('.platform-connection-summary .platform-source');
     const group = host.querySelector<HTMLElement>('.cookie-path-preview');
     check(locale, theme, width, name?.textContent?.trim() === filename, `${label}: credential basename matches ${filename.length} chars`);
     check(locale, theme, width, Boolean(group && group.scrollWidth <= group.clientWidth + 1), `${label}: credential group fits`);
@@ -155,9 +155,9 @@ async function validate(locale: Locale, theme: string, width: number) {
       check(locale, theme, width, Number.parseFloat(getComputedStyle(group, '::after').width) <= group.clientWidth + 1, `${label}: path hint fits credential width`);
       if (filename.length > 100) check(locale, theme, width, name.scrollWidth > name.clientWidth, `${label}: long filename is actually truncated`);
     }
-    const select = host.querySelector<HTMLElement>('.file-cookies-btn');
-    const clear = host.querySelector<HTMLElement>('.clear-cookies-btn');
-    check(locale, theme, width, Boolean(select && clear && select.getBoundingClientRect().right <= clear.getBoundingClientRect().left + 1), `${label}: credential actions do not overlap`);
+    const select = host.querySelector<HTMLElement>('[data-connection-entry="youtube-file"]');
+    const clear = host.querySelector<HTMLElement>('.platform-connection-row .icon-btn');
+    check(locale, theme, width, Boolean(select && clear && (clear.getBoundingClientRect().top >= select.getBoundingClientRect().bottom || select.getBoundingClientRect().right <= clear.getBoundingClientRect().left + 1)), `${label}: credential actions do not overlap`);
   }
 
   if (wrapper) {

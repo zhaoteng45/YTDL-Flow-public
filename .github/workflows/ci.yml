@@ -97,6 +97,10 @@ jobs:
         run: bun run test:ui-input
       - name: Settings and credential layout
         run: bun run test:ui-settings
+      - name: Homepage platform connections
+        run: bun scripts/run-homepage-connections.mjs
+      - name: YouTube browser connection states
+        run: bun scripts/run-youtube-browser-connection.mjs
       - name: Task states and actions
         run: bun run test:ui-download-list
       - name: Empty and active workspace geometry
@@ -111,6 +115,8 @@ jobs:
           path: |
             .scratch/input-section-ui-matrix/
             .scratch/settings-panel-ui-matrix/
+            .scratch/homepage-connections/
+            .scratch/youtube-browser-connection/
             .scratch/download-list-ui-matrix/
             .scratch/layout-review/
 

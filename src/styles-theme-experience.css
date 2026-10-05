@@ -1822,3 +1822,18 @@
   gap: var(--spacing-xs);
   min-width: 0;
 }
+
+/* The 640px-height release matrix exceeded the first screen by 44–122px
+   after adding platform entries. Reclaim spacing, retaining 44px controls. */
+@media (max-height: 740px) {
+  :root:is([data-theme="cobalt-butter"], [data-theme="fluent"], [data-theme="material"]) .app-layout[data-workspace-state="empty"] .input-section { gap: 8px; }
+  :root:is([data-theme="cobalt-butter"], [data-theme="fluent"], [data-theme="material"]) .app-layout[data-workspace-state="empty"] .controls-row { margin-top: 0; padding-top: 4px; }
+  :root:is([data-theme="cobalt-butter"], [data-theme="fluent"], [data-theme="material"]) .app-layout[data-workspace-state="empty"] .dir-select-btn { padding-block: 4px; min-height: 44px; }
+  :root:is([data-theme="cobalt-butter"], [data-theme="fluent"], [data-theme="material"]) .app-layout[data-workspace-state="empty"] .platform-connection-summary { gap: 0; }
+}
+@media (min-width: 700px) and (max-width: 980px) and (max-height: 740px) {
+  /* With both entries visible, the supporting guide added 68px overflow
+     at 900×640. The composer already explains the next action. */
+  :root:is([data-theme="cobalt-butter"], [data-theme="fluent"], [data-theme="material"]) .app-layout[data-workspace-state="empty"] .empty-state { display: none; }
+  :root:is([data-theme="cobalt-butter"], [data-theme="fluent"], [data-theme="material"]) .app-layout[data-workspace-state="empty"] .platform-connections { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

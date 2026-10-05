@@ -1592,7 +1592,7 @@ const handleUASelect = (e: Event) => {
             </div>
             <div class="modal-footer">
                 <button class="neo-button" @click="showYouTubeModal = false">{{ t('settings.youtube_auth.cancel') }}</button>
-                <button class="neo-button primary" :disabled="isCheckingBrowser" :aria-busy="isCheckingBrowser" @click="confirmYouTubeAuth">{{ t('settings.youtube_auth.confirm') }}</button>
+                <button class="neo-button primary" :disabled="isCheckingBrowser" :aria-busy="isCheckingBrowser" @click="confirmYouTubeAuth">{{ t(youtubeAuthType === 'file' ? 'settings.youtube_auth.confirm_file' : 'settings.youtube_auth.confirm') }}</button>
             </div>
         </div>
     </div>

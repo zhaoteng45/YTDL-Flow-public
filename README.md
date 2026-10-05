@@ -1,13 +1,13 @@
 # YTDL-Flow
 
-把视频链接保存为本地视频或音频文件。
+把 YouTube 和哔哩哔哩视频下载到本地。可以选画质，也可以只保存音频。
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![CI](https://github.com/zhaoteng45/YTDL-Flow-public/actions/workflows/ci.yml/badge.svg)](https://github.com/zhaoteng45/YTDL-Flow-public/actions/workflows/ci.yml)
 
 [下载与更新](https://github.com/zhaoteng45/YTDL-Flow-public/releases) · [English](#english)
 
-YTDL-Flow 为 yt-dlp 和 FFmpeg 提供桌面界面。粘贴链接，选择格式和保存位置，然后开始下载。
+粘贴链接，解析后选择画质和保存位置，就可以开始下载。下载进度、合并状态和失败原因都能在任务里查看。
 
 ## 功能
 
@@ -93,7 +93,7 @@ YTDL-Flow 原创源码采用 [MIT](LICENSE) 许可证。第三方源码和随包
 
 ## English
 
-YTDL-Flow is a desktop interface for yt-dlp and FFmpeg. Paste a video URL, choose a format and destination, and download the video or audio to your computer.
+Download YouTube and Bilibili videos to your computer. Paste a link, choose the quality and save location, then download. You can also save just the audio. Progress, merging status and errors appear in the task list.
 
 - Add multiple URLs and download them one at a time.
 - Choose source formats, resolution, audio tracks, or a time range.

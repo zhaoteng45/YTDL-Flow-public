@@ -30,7 +30,7 @@ async function run() {
   app.mount('#app');
   await settle();
   useAppStore(pinia).setTheme(theme);
-  if (params.has('review')) useAppStore(pinia).extraArgs.cookies = 'C:/fixtures/cookies-www.youtube.com.json';
+  if (params.has('review')) useAppStore(pinia).setPlatformCookie('youtube', 'C:/fixtures/cookies-www.youtube.com.json');
   await settle();
   if (state === 'active') {
     // Use production input → CurrentTaskService, not a duplicated fixture owner.
@@ -101,7 +101,7 @@ async function run() {
     trigger.click();
     await settle();
     check('permanent shortcut cheat sheet is absent', !document.querySelector('.kbd-shortcuts-tip'));
-    const cookie = document.querySelector<HTMLElement>('.cookie-title-text')!;
+    const cookie = document.querySelector<HTMLElement>('.platform-connection-summary .platform-source')!;
     check('cookie filename uses single-line ellipsis', getComputedStyle(cookie).whiteSpace === 'nowrap' && getComputedStyle(cookie).textOverflow === 'ellipsis');
     const inputBounds = document.querySelector('textarea')!.getBoundingClientRect();
     const actions = document.querySelector('.input-actions')!.getBoundingClientRect();
@@ -122,7 +122,7 @@ async function run() {
   check('operation pane has no backdrop blur', getComputedStyle(sidebar).backdropFilter === 'none');
   if (state === 'empty') {
     check('empty first screen needs no page scrolling (1px rounding)', document.documentElement.scrollHeight <= innerHeight + 1);
-    for (const selector of ['.header', 'textarea', '.input-actions', '.analyze-btn-large', '.dir-control-group', '.cookie-control-group']) {
+    for (const selector of ['.header', 'textarea', '.input-actions', '.analyze-btn-large', '.dir-control-group', '.platform-connections']) {
       const bounds = document.querySelector(selector)!.getBoundingClientRect();
       check(`${selector} fully visible in empty first screen`, bounds.top >= 0 && bounds.bottom <= innerHeight + 1);
     }

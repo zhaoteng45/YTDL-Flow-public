@@ -314,10 +314,10 @@ defineExpose({
 
     <div class="platform-connections" :aria-label="t('input.platform_connection.title')">
       <div v-for="platform in (['youtube', 'bilibili'] as const)" :key="platform" class="platform-connection-row">
-        <div class="platform-connection-summary" :title="store.getPlatformCredentialConfig(platform)?.preferred.ref">
+        <div class="platform-connection-summary cookie-path-preview" :data-cookie-path="store.getPlatformCredentialConfig(platform)?.preferred.ref" :tabindex="store.getPlatformCredentialConfig(platform)?.preferred.ref ? 0 : undefined" :title="store.getPlatformCredentialConfig(platform)?.preferred.ref">
           <strong>{{ platform === 'youtube' ? 'YouTube' : '哔哩哔哩' }}</strong>
-          <span class="platform-source">{{ platformSourceLabel(platform) }}</span>
-          <span v-if="store.getPlatformCredentialConfig(platform)?.preferred.ref" class="platform-source">{{ t('settings.auth.credentials_pending') }}</span>
+          <span class="platform-source" :title="platformSourceLabel(platform)">{{ platformSourceLabel(platform) }}</span>
+          <span v-if="store.getPlatformCredentialConfig(platform)?.preferred.ref" class="platform-source" :title="t('settings.auth.credentials_pending')">{{ t('settings.auth.credentials_pending') }}</span>
         </div>
         <div class="platform-connection-actions">
           <button class="neo-button small platform-login-button" :data-platform="platform"
