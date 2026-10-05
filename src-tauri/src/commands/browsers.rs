@@ -48,14 +48,13 @@ fn classify_cookie_check_output(_status_success: bool, combined_output: &str) ->
     let lower = combined_output.to_ascii_lowercase();
 
     if lower.contains("database is locked")
-        || lower.contains("could not copy chrome cookie database")
         || lower.contains("resource temporarily unavailable")
         || lower.contains("the process cannot access the file")
     {
         return cookie_check_result(
             false,
             CookieCheckKind::Locked,
-            "浏览器文件被锁定：请彻底关闭浏览器（包括任务栏右下角托盘图标）",
+            "浏览器登录数据被占用：浏览器没有窗口时也可能有后台进程，请退出后重试或导入文件",
             Some(combined_output.to_string()),
         );
     }
@@ -64,7 +63,7 @@ fn classify_cookie_check_output(_status_success: bool, combined_output: &str) ->
         return cookie_check_result(
             false,
             CookieCheckKind::PermissionDenied,
-            "无权读取文件：请尝试以管理员身份运行本程序",
+            "无法访问浏览器登录数据：请检查文件访问权限，或导入 Cookies 文件",
             Some(combined_output.to_string()),
         );
     }
@@ -144,7 +143,9 @@ async fn check_browser_cookies_internal(
         ));
     }
 
-    // Run yt-dlp to check if we can extract cookies (avoids DB locked errors)
+    // yt-dlp copies the browser database before reading it. Windows sharing or
+    // access restrictions can still prevent the copy; a generic copy error
+    // alone is not evidence that the browser is running.
     // We use a dummy URL because newer yt-dlp requires a URL even for cookie checks
     // We expect this command to FAIL (exit code 1) usually (due to DNS error on dummy URL),
     // but we only care if it fails due to COOKIE errors.
@@ -348,5 +349,15 @@ mod cookie_check_tests {
 
         let decrypt = classify_cookie_check_output(false, "ERROR: Failed to decrypt with DPAPI");
         assert_eq!(decrypt.kind, CookieCheckKind::DecryptFailed);
+    }
+
+    #[test]
+    fn copy_failure_without_lock_evidence_is_not_reported_as_browser_in_use() {
+        let result = classify_cookie_check_output(false,
+            "ERROR: Could not copy Chrome cookie database. See issue 7271 for more info");
+        assert_eq!(result.kind, CookieCheckKind::ExecutionFailed);
+        let denied = classify_cookie_check_output(false,
+            "ERROR: Could not copy Chrome cookie database: Permission denied");
+        assert_eq!(denied.kind, CookieCheckKind::PermissionDenied);
     }
 }

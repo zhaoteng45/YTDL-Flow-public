@@ -90,6 +90,10 @@ async function run() {
     trigger.click();
     await settle();
     for (const option of document.querySelectorAll<HTMLElement>('.dropdown-item')) {
+      const swatch = option.querySelector<HTMLElement>('.theme-color-swatch');
+      const previewColors: Record<string, string> = { 'theme-material': 'rgb(36, 87, 167)', 'theme-fluent': 'rgb(132, 61, 75)', 'theme-cobalt-butter': 'rgb(184, 204, 232)' };
+      check('each theme option previews its own primary color', Boolean(swatch && getComputedStyle(swatch).backgroundColor === previewColors[option.id]));
+      check('theme preview is decorative and keeps the name readable', swatch?.getAttribute('aria-hidden') === 'true' && Boolean(option.querySelector('.item-label')?.textContent?.trim()));
       const text = option.querySelector<HTMLElement>('.item-label')!.getBoundingClientRect();
       const bounds = option.getBoundingClientRect();
       check('menu theme name is geometrically centered', Math.abs(text.left + text.width / 2 - bounds.left - bounds.width / 2) <= 1);

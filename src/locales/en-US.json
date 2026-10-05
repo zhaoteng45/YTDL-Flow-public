@@ -103,6 +103,14 @@
       "expired": "Expired",
       "mismatch": "Site mismatch",
       "invalid": "Invalid or unreadable file"
+    },
+    "platform_connection": {
+      "title": "Site connections",
+      "optional": "Not connected · Try public videos",
+      "browser": "Connect browser",
+      "qr": "Scan to sign in",
+      "file": "Import file",
+      "disconnect": "Disconnect {platform}"
     }
   },
   "download": {
@@ -145,11 +153,18 @@
     },
     "browser": {
       "detected_suffix": " (Detected)",
-      "scanning": "Scanning available browsers...",
+      "scanning": "Reading credentials from the selected browser…",
       "auto_matched": "Auto matched: {browser}",
       "no_usable_cookies": "No usable Cookies detected",
       "switch_to_file_hint": "Switch to Cookies File mode",
-      "detect_failed": "Browser detection failed"
+      "detect_failed": "Browser detection failed",
+      "read_success": "Credentials read successfully. Video analysis determines sign-in and access requirements.",
+      "locked": "Browser login data is in use. Background processes can remain without an open window. Exit the browser and retry, or import a cookies file.",
+      "decrypt_failed": "Cannot decrypt browser credentials. Closing the browser may not fix this. Choose another signed-in browser or import a file.",
+      "permission_denied": "Your user cannot read this browser profile. Choose a browser used by the current user or import a file.",
+      "not_found": "No readable credentials found. Check that this browser is signed in to YouTube. For another browser profile, use file import.",
+      "invalid_browser": "Invalid browser selection. Choose a browser again.",
+      "execution_failed": "Could not read credentials. Database copying or access may have failed; file use is not confirmed. Retry or import a cookies file."
     },
     "tabs": {
       "general": "General",
@@ -187,7 +202,7 @@
       "bili_login": "Bilibili QR Login (Recommended)",
       "bili_helper": "Scan QR code to login directly, no manual cookies needed",
       "youtube_login": "YouTube Browser Login",
-      "youtube_helper": "Login in your browser, close it, then choose browser cookies here.",
+      "youtube_helper": "Use a signed-in browser without exporting a file. Public videos usually need no account connection.",
       "youtube_guide": "Open YouTube Cookies Export Guide",
       "logged_in_as": "Logged in to Bilibili",
       "logout": "Logout",
@@ -203,7 +218,9 @@
         "file": "File"
       },
       "no_browser": "⚠️ No browsers detected",
-      "connected_as": "Connected ({name})"
+      "connected_as": "Connected ({name})",
+      "credentials_from": "Credentials: {name}",
+      "credentials_pending": "Sign-in not yet verified"
     },
     "health": {
       "title": "System Health",
@@ -383,13 +400,14 @@
       "description": "Choose how to connect your YouTube account and obtain Cookies:",
       "browser_tab": "Browser (Recommended)",
       "file_tab": "Cookies File",
-      "browser_policy_note": "YouTube security restrictions prevent direct sign-in inside the app. Read credentials from a browser where you are already signed in.",
+      "browser_policy_note": "Read credentials from the selected browser without an extension or file export. Chrome encryption or files in use may prevent reading.",
       "login_step": "Step 1: Sign in to YouTube",
       "open_login": "Open YouTube in Browser",
       "browser_step": "Step 2: Choose a browser to extract Cookies",
       "browser_select_label": "Browser used to extract Cookies",
-      "auto_scan_title": "Scan all browsers for usable Cookies",
-      "auto_match": "Auto Match",
+      "auto_scan_title": "Check only the selected browser, without scanning other browsers",
+      "auto_match": "Check access",
+      "use_file": "Import a file instead",
       "uncommon_browser_tip": "Tip: For uncommon browsers, try Chromium or use file mode.",
       "extension_step": "Install the browser extension",
       "store_suffix": "Store",

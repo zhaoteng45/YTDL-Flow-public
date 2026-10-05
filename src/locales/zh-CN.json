@@ -103,6 +103,14 @@
       "expired": "检测到过期",
       "mismatch": "与此站点不匹配",
       "invalid": "文件无效或不可读"
+    },
+    "platform_connection": {
+      "title": "网站连接",
+      "optional": "未连接 · 可先尝试公开视频",
+      "browser": "连接浏览器",
+      "qr": "扫码登录",
+      "file": "导入文件",
+      "disconnect": "断开 {platform}"
     }
   },
   "download": {
@@ -145,11 +153,18 @@
     },
     "browser": {
       "detected_suffix": " (已检测)",
-      "scanning": "正在扫描可用浏览器...",
+      "scanning": "正在读取所选浏览器的凭证…",
       "auto_matched": "已自动匹配: {browser}",
       "no_usable_cookies": "未检测到可用 Cookies",
       "switch_to_file_hint": "建议切换至“Cookies 文件”模式",
-      "detect_failed": "检测过程出错"
+      "detect_failed": "检测过程出错",
+      "read_success": "凭证读取成功。账号登录状态和视频权限以解析结果为准。",
+      "locked": "浏览器登录数据被占用。没有打开窗口时也可能有后台进程；退出该浏览器后重试，或导入 Cookies 文件。",
+      "decrypt_failed": "无法解密浏览器凭证。关闭浏览器不一定能解决；可选择其他已登录浏览器，或使用文件导入。",
+      "permission_denied": "当前用户无权读取该浏览器资料。请选择当前用户使用的浏览器，或使用文件导入。",
+      "not_found": "未找到可读取的凭证。请确认该浏览器已登录 YouTube；使用其他浏览器资料时，可改用文件导入。",
+      "invalid_browser": "浏览器选择无效，请重新选择。",
+      "execution_failed": "无法完成凭证读取，可能是数据库复制或访问失败；尚不能确认是否被占用。请重试或使用文件导入。"
     },
     "tabs": {
       "general": "常规",
@@ -234,7 +249,7 @@
       "bili_login": "Bilibili 扫码登录",
       "bili_helper": "直接扫码登录，无需手动提取 Cookies",
       "youtube_login": "YouTube 浏览器登录",
-      "youtube_helper": "打开浏览器完成登录，关闭浏览器后再选择浏览器 Cookies。",
+      "youtube_helper": "使用已登录浏览器，无需导出文件；公开视频通常无需连接账号。",
       "youtube_guide": "查看 YouTube Cookies 导出教程",
       "logged_in_as": "已登录 Bilibili",
       "logout": "退出登录",
@@ -250,7 +265,9 @@
         "file": "文件 (File)"
       },
       "no_browser": "⚠️ 未检测到已安装的浏览器 (No browsers detected)",
-      "connected_as": "已连接（{name}）"
+      "connected_as": "已连接（{name}）",
+      "credentials_from": "凭证来源：{name}",
+      "credentials_pending": "登录状态尚未验证"
     },
     "health": {
       "title": "系统健康",
@@ -383,13 +400,14 @@
       "description": "请选择一种方式连接 YouTube 账号以获取 Cookies：",
       "browser_tab": "浏览器获取（推荐）",
       "file_tab": "Cookies 文件",
-      "browser_policy_note": "由于 YouTube 安全策略限制，无法在软件内直接登录。请从已登录的浏览器读取凭证。",
+      "browser_policy_note": "读取所选浏览器的登录凭证，无需安装扩展或导出文件。Chrome 加密或文件占用可能导致读取失败。",
       "login_step": "第一步：登录 YouTube 账号",
       "open_login": "前往浏览器登录",
       "browser_step": "第二步：选择浏览器提取 Cookies",
       "browser_select_label": "选择提取 Cookies 的浏览器",
-      "auto_scan_title": "自动扫描所有浏览器以寻找可用 Cookies",
-      "auto_match": "自动匹配",
+      "auto_scan_title": "只检测所选浏览器，不扫描其他浏览器",
+      "auto_match": "检测读取",
+      "use_file": "改用文件导入",
       "uncommon_browser_tip": "提示：冷门浏览器请尝试选择 Chromium 或使用文件模式。",
       "extension_step": "安装浏览器扩展",
       "store_suffix": "商店",

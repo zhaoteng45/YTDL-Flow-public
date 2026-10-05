@@ -1,15 +1,14 @@
 <script setup lang="ts">
-import { ref, computed, unref, useId, watch } from 'vue';
+import { ref, computed, unref, useId } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import { useAppStore } from '../stores/appStore';
 import { parseUrlInput } from '../application/urlInput';
-import type { ExtraArgs } from '../types';
+import type { PlatformConnectionEntry, CredentialPlatform } from '../application/platformCredentials';
 import NeoIcon from './NeoIcon.vue';
 
 const store = useAppStore();
 const downloadDir = computed<string | null>(() => unref(store.downloadDir));
-const extraArgs = computed<ExtraArgs>(() => unref(store.extraArgs));
 const systemDownloadDir = computed<string | null>(() => unref(store.systemDownloadDir));
 const { t } = useI18n();
 const inputContent = ref('');
@@ -42,7 +41,19 @@ const error = computed({
 
 const emit = defineEmits<{
     (e: 'analyze', urls: string[]): void;
+    (e: 'connect', entry: PlatformConnectionEntry): void;
 }>();
+
+const platformSourceLabel = (platform: CredentialPlatform) => {
+  const source = store.getEffectivePlatformSource(platform);
+  if (source.kind === 'none' || source.kind === 'unspecified') return t('input.platform_connection.optional');
+  if (source.kind === 'browser') return t('input.cookie_browser', { value: source.ref });
+  return source.ref?.split(/[/\\]/).pop() || t('input.cookie_file_label');
+};
+const disconnectPlatform = (platform: CredentialPlatform) => {
+  store.clearPlatformCookie(platform);
+  if (platform === 'bilibili') store.clearBilibiliUserProfile();
+};
 
 /**
  * Multi-URL is an input convenience, not a batch domain object.
@@ -60,21 +71,6 @@ const downloadDirName = computed(() => {
 
 const parsedInput = computed(() => parseUrlInput(inputContent.value));
 const parsedLinks = computed(() => parsedInput.value.urls);
-const cookieInspectionState = ref('unknown');
-let cookieInspectionSequence = 0;
-watch([() => extraArgs.value.cookies, () => parsedLinks.value[0]], async ([cookie, url]) => {
-  const sequence = ++cookieInspectionSequence;
-  if (!cookie) { cookieInspectionState.value = 'none'; return; }
-  if (isBrowserCookie(cookie)) { cookieInspectionState.value = 'browser'; return; }
-  cookieInspectionState.value = 'checking';
-  try {
-    const result = await store.inspectCookieFile(cookie, url);
-    if (sequence === cookieInspectionSequence) cookieInspectionState.value = result?.state ?? 'unknown';
-  } catch {
-    if (sequence === cookieInspectionSequence) cookieInspectionState.value = 'invalid';
-  }
-}, { immediate: true });
-
 const removeLink = (linkToRemove: string) => {
   inputContent.value = inputContent.value
     .split(/\s+/)
@@ -211,35 +207,6 @@ const handlePaste = async () => {
   }
 };
 
-function isBrowserCookie(c?: string | null) {
-  if (!c) return false;
-  const lower = c.trim().toLowerCase();
-  return ['chrome', 'edge', 'firefox', 'brave', 'opera', 'vivaldi', 'safari', 'chromium'].some(b => lower.startsWith(b));
-}
-
-const cookieFileName = computed(() => {
-  if (!extraArgs.value.cookies) return '';
-  const parts = extraArgs.value.cookies.split(/[/\\]/);
-  return parts[parts.length - 1] || extraArgs.value.cookies;
-});
-
-const handleSelectCookies = async () => {
-  try {
-    const selected = await store.chooseCookieFile(t('settings.cookies') || 'Select Cookies File');
-    if (selected) extraArgs.value.cookies = selected;
-  } catch (err) {
-    console.error('Failed to select cookies file', err);
-    error.value = {
-      title: t('input.error_cookie_file'),
-      hint: t('input.error_cookie_file_hint'),
-    };
-  }
-};
-
-const clearCookies = () => {
-  extraArgs.value.cookies = '';
-};
-
 const selectDirectory = async () => {
   try {
     await store.chooseDownloadDir(t('input.select_dir'));
@@ -342,47 +309,29 @@ defineExpose({
         </button>
       </div>
 
-      <div class="dir-control-group cookie-control-group cookie-path-preview" :data-cookie-path="extraArgs.cookies || undefined">
-        <button class="input-utility-button u-flex-center action-btn dir-select-btn cookie-select-btn"
-            @click="handleSelectCookies"
-            :aria-label="extraArgs.cookies ? `Cookies: ${extraArgs.cookies}` : t('input.pot_idle_title')"
-            >
-          <NeoIcon name="cookie" :size="18" class="svg-icon" />
-          <div class="btn-content-col">
-            <div class="cookie-title-row">
-              <span class="text-primary cookie-title-text"
-                  :title="extraArgs.cookies ? (isBrowserCookie(extraArgs.cookies) ? t('input.cookie_browser_login', { value: extraArgs.cookies }) : t('input.cookie_file_label')) : t('input.cookie_file_label')">
-                <template v-if="extraArgs.cookies">
-                  {{ isBrowserCookie(extraArgs.cookies) ? t('input.cookie_browser', { value: extraArgs.cookies }) : cookieFileName }}
-                </template>
-                <template v-else>{{ t('input.cookie_file_label') }}</template>
-              </span>
-            </div>
-            <div class="cookie-state-line">
-              <span v-if="extraArgs.cookies" class="pot-status-badge pot-idle" :title="t(`input.cookie_state.${cookieInspectionState}`)">
-                <span class="status-pulse-dot"></span>
-                {{ t(`input.cookie_state.${cookieInspectionState}`) }}
-              </span>
-              <span v-else class="pot-status-badge pot-idle" :title="t('input.pot_idle_title')">
-                {{ t('input.pot_badge_idle') }}
-              </span>
-            </div>
-            <span class="dir-path-text" v-if="!extraArgs.cookies" :title="t('input.cookie_import_hint')">
-              <NeoIcon name="zap" :size="12" class="u-mr-xs" />{{ t('input.cookie_import_hint') }}
-            </span>
-          </div>
-        </button>
-        <button class="input-utility-button icon-btn file-cookies-btn" @click="handleSelectCookies"
-            :aria-label="t('settings.cookies_pick_file')" :title="t('settings.cookies_pick_file')">
-          <NeoIcon name="folder" :size="16" class="svg-icon" />
-        </button>
-        <button v-if="extraArgs.cookies" class="input-utility-button icon-btn clear-cookies-btn"
-            @click="clearCookies"
-            :aria-label="t('app.clear_all') || '清除'" :title="t('app.clear_all')">
-          <NeoIcon name="cross" :size="14" stroke-width="2.5" />
-        </button>
-      </div>
 
+    </div>
+
+    <div class="platform-connections" :aria-label="t('input.platform_connection.title')">
+      <div v-for="platform in (['youtube', 'bilibili'] as const)" :key="platform" class="platform-connection-row">
+        <div class="platform-connection-summary" :title="store.getPlatformCredentialConfig(platform)?.preferred.ref">
+          <strong>{{ platform === 'youtube' ? 'YouTube' : '哔哩哔哩' }}</strong>
+          <span class="platform-source">{{ platformSourceLabel(platform) }}</span>
+          <span v-if="store.getPlatformCredentialConfig(platform)?.preferred.ref" class="platform-source">{{ t('settings.auth.credentials_pending') }}</span>
+        </div>
+        <div class="platform-connection-actions">
+          <button class="neo-button small platform-login-button" :data-platform="platform"
+            :data-connection-entry="platform === 'youtube' ? 'youtube-browser' : 'bilibili'"
+            @click="emit('connect', platform === 'youtube' ? 'youtube-browser' : 'bilibili')">
+            {{ platform === 'youtube' ? t('input.platform_connection.browser') : t('input.platform_connection.qr') }}
+          </button>
+          <button v-if="platform === 'youtube'" class="neo-button small" data-connection-entry="youtube-file"
+            @click="emit('connect', 'youtube-file')">{{ t('input.platform_connection.file') }}</button>
+          <button v-if="store.getPlatformCredentialConfig(platform)?.preferred.ref" class="input-utility-button icon-btn"
+            :aria-label="t('input.platform_connection.disconnect', { platform: platform === 'youtube' ? 'YouTube' : '哔哩哔哩' })"
+            @click="disconnectPlatform(platform)"><NeoIcon name="cross" :size="16" /></button>
+        </div>
+      </div>
     </div>
 
     <div v-if="errorTitle" :id="errorMessageId" class="error-msg" role="alert" aria-live="assertive">

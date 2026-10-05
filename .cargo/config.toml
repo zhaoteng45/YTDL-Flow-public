@@ -1,0 +1,12 @@
+# Reuse the verified native development cache instead of creating a second
+# src-tauri/target tree when `bun run tauri:dev` is launched from a fresh shell.
+# Cargo resolves this path relative to the project root (parent of .cargo).
+[build]
+target-dir = ".scratch/credential-dev-target"
+
+# Match the existing development build, which occupies about 2.6 GiB locally.
+# Release profiles keep their existing settings. Native debugging can opt back
+# in with CARGO_PROFILE_DEV_DEBUG=2 and CARGO_INCREMENTAL=1 when needed.
+[profile.dev]
+debug = 0
+incremental = false

@@ -81,7 +81,8 @@ describe('ThemeSelector accessibility and retained theme coverage', () => {
   });
 
   it('owns brand and semantic values once and intentionally pairs secondary foreground', () => {
-    expect(stylesSource).toContain('--brand-primary: #2457A7;');
+    expect(stylesSource).toContain('--theme-preview-material: #2457A7;');
+    expect(stylesSource).toContain('--brand-primary: var(--theme-preview-material);');
     expect(stylesSource).toContain('--color-on-secondary: var(--neutral-text-primary);');
     expect(stylesSource).toContain('--semantic-busy-bg: var(--semantic-info-bg);');
     expect(systemStylesSource).not.toMatch(/--color-(?:primary|success|warning|error):\s*#/);

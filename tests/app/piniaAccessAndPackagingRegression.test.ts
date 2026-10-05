@@ -18,10 +18,11 @@ describe('pinia access regression coverage', () => {
     expect(inputSource).not.toMatch(/store\.[A-Za-z0-9_]+\.value/);
 
     expect(appSource).toMatch(/unref\(store\.extraArgs\)/);
-    expect(inputSource).toMatch(/unref\(store\.extraArgs\)/);
+    // Homepage now uses the platform source seam instead of global cookies.
+    expect(inputSource).toContain('store.getEffectivePlatformSource(platform)');
     expect(storeSource).not.toMatch(/audioManager/);
     expect(appSource).toContain(':model-value="theme"');
-    expect(inputSource).toMatch(/extraArgs\.value\.cookies/);
+    expect(inputSource).not.toMatch(/extraArgs\.value\.cookies/);
   });
 });
 

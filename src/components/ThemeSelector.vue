@@ -255,13 +255,7 @@ onClickOutside(containerRef, handleClickOutside);
                 :class="{ 'active': modelValue === item.value, 'focused': focusedIndex === idx }" @click="selectTheme(item.value)"
                 role="option" :aria-selected="modelValue === item.value" :id="'theme-' + item.value"
                 tabindex="-1" @mouseenter="focusedIndex = idx">
-                <span class="item-icon" aria-hidden="true">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
-                        :viewBox="icons[item.icon as ThemeKey].viewBox" fill="none" stroke="currentColor"
-                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                        v-html="icons[item.icon as ThemeKey].content">
-                    </svg>
-                </span>
+                <span class="theme-color-swatch" :data-preview-theme="item.value" aria-hidden="true"></span>
                 <span class="item-label">{{ t(item.label) }}</span>
                 <span class="check-icon" v-if="modelValue === item.value" aria-hidden="true">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
@@ -366,15 +360,25 @@ onClickOutside(containerRef, handleClickOutside);
     color: var(--color-on-primary);
 }
 
-.item-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    opacity: 0.8;
+.theme-color-swatch {
+    width: 18px;
+    height: 18px;
+    box-sizing: border-box;
+    justify-self: center;
+    border: 2px solid currentColor;
+    border-radius: 50%;
 }
 
-.dropdown-item.active .item-icon {
-    opacity: 1;
+.theme-color-swatch[data-preview-theme="material"] {
+    background-color: var(--theme-preview-material);
+}
+
+.theme-color-swatch[data-preview-theme="fluent"] {
+    background-color: var(--theme-preview-fluent);
+}
+
+.theme-color-swatch[data-preview-theme="cobalt-butter"] {
+    background-color: var(--theme-preview-cobalt-butter);
 }
 
 .item-label {

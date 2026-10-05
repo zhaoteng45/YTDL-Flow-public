@@ -27,14 +27,8 @@ describe('InputSection primary flow', () => {
     expect(source).toMatch(/<div v-if="errorTitle" :id="errorMessageId"[\s\S]*?role="alert"/);
   });
 
-  it('recommends Cookie-Editor and supports cookie file selection on homepage', () => {
-    expect(source).toMatch(/t\('input\.cookie_import_hint'\)/);
-    expect(source).toMatch(/handleSelectCookies/);
-    expect(source).toMatch(/file-cookies-btn/);
-  });
 
-  it('surfaces native file and directory picker failures through the existing alert region', () => {
-    expect(source).toMatch(/handleSelectCookies[\s\S]*?catch \(err\)[\s\S]*?title: t\('input\.error_cookie_file'\)/);
+  it('surfaces native directory picker failures through the existing alert region', () => {
     expect(source).toMatch(/selectDirectory[\s\S]*?catch \(err\)[\s\S]*?title: t\('input\.error_download_dir'\)/);
     expect(source).toMatch(/handleOpenDirectory[\s\S]*?catch \(err\)[\s\S]*?title: t\('input\.error_open_dir'\)/);
   });
@@ -50,24 +44,11 @@ describe('InputSection primary flow', () => {
     expect(source).toMatch(/import NeoIcon from '\.\/NeoIcon\.vue';/);
     expect(source).toMatch(/<NeoIcon\s+name="search"/);
     expect(source).toMatch(/<NeoIcon\s+name="folder"/);
-    expect(source).toMatch(/<NeoIcon\s+name="cookie"/);
     expect(source).toMatch(/<NeoIcon\s+name="cross"/);
     expect(source).not.toMatch(/💡/);
   });
 
-  it('displays an honest cookies status badge', () => {
-    expect(source).toMatch(/cookieInspectionState/);
-    expect(source).toMatch(/class="pot-status-badge pot-idle"/);
-    expect(source).toMatch(/input\.cookie_state\.\$\{cookieInspectionState\}/);
-    expect(source).not.toMatch(/class="pot-status-badge pot-ready"/);
-    expect(source).toMatch(/t\('input\.pot_badge_idle'\)/);
-  });
+  // Homepage credential actions, honest states and responsive geometry are now
+  // exercised by tests/ui/homepage-connections.ts using real Vue components.
 
-  it('prevents long cookie filenames from squeezing the POT status badge out of view', () => {
-    expect(source).toMatch(/class="cookie-title-row"[\s\S]*?class="text-primary cookie-title-text"[\s\S]*?class="pot-status-badge/);
-    expect(source).not.toContain('class="dir-path-text cookie-active-path"');
-    expect(source).toContain(': cookieFileName }}');
-    expect(source).toMatch(/\.cookie-title-row \.text-primary,\s*\.cookie-title-text\s*\{[\s\S]*width:\s*auto;/);
-    expect(source).toMatch(/\.pot-status-badge\s*\{[\s\S]*flex-shrink:\s*0;/);
-  });
 });

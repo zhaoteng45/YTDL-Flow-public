@@ -167,4 +167,103 @@ describe('appStore task lifecycle retirement', () => {
       await runtime.dispose();
     }
   });
+
+  it('uses a directly imported platform file for a new analysis while keeping Bilibili separate', async () => {
+    const store = useAppStore();
+    // Existing YouTube browser preference must be replaced by the direct file import.
+    store.setPlatformCookie('youtube', 'edge');
+    store.setPlatformCookie('bilibili', 'bilibili-fixture');
+
+    safeInvokeMock.mockImplementation(async (command: string) => {
+      if (command === 'inspect_cookie_file') {
+        return { state: 'imported', total: 12, matching: 12, fresh: 12 };
+      }
+      return undefined;
+    });
+
+    const imported = await store.importPlatformCookieFile('youtube', 'C:/cookies/youtube.txt');
+    expect(imported).toEqual({ ok: true, state: 'imported' });
+
+    const analyzerCookies: Array<string | undefined> = [];
+    const engine = new RecordingEngine();
+    const runtime = createCurrentTaskRuntime({
+      engine,
+      analyzer: {
+        analyze: async (request) => {
+          analyzerCookies.push((request.extraArgs as { cookies?: string } | undefined)?.cookies);
+          return {
+            title: 'Imported file source',
+            thumbnail: '',
+            duration: '1:00',
+            channel: 'Example',
+            url: request.sourceUrl,
+          };
+        },
+      },
+      environment: {
+        getGlobalExtraArgs: (sourceUrl) =>
+          sourceUrl ? store.getExtraArgsForUrl(sourceUrl) : { ...store.extraArgs },
+        getDownloadDir: () => store.downloadDir ?? store.systemDownloadDir ?? undefined,
+      },
+      effectsPort: {
+        playSuccess: () => {},
+        playError: () => {},
+        setTaskbar: () => {},
+      },
+      createRowId: () => 'row-file-import',
+      createAnalysisAttemptId: () => 'analysis-file-import',
+      createDownloadAttemptId: () => 'download-file-import',
+      downloadServiceOptions: {
+        maxConcurrent: 1,
+        settlementDelayMs: 0,
+      },
+    });
+
+    try {
+      runtime.actions.analyzeUrls(['https://www.youtube.com/watch?v=file-import']);
+      await flushMicrotasks();
+
+      expect(analyzerCookies).toHaveLength(1);
+      // The direct import becomes the effective source even though a browser was configured before.
+      expect(analyzerCookies[0]).toBe('C:/cookies/youtube.txt');
+      // Bilibili keeps its own independent source.
+      expect(store.getExtraArgsForUrl('https://www.bilibili.com/video/BV1').cookies).toBe(
+        'bilibili-fixture',
+      );
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
+  it('does not reconnect when file inspection finishes after disconnect', async () => {
+    const store = useAppStore();
+    store.setPlatformCookie('youtube', 'edge');
+    let finish!: (value: unknown) => void;
+    safeInvokeMock.mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+    const importing = store.importPlatformCookieFile('youtube', 'C:/cookies/youtube.txt');
+    store.clearPlatformCookie('youtube');
+    finish({ state: 'imported', total: 1, matching: 1, fresh: 1 });
+    expect((await importing).ok).toBe(false);
+    expect(store.getEffectivePlatformSource('youtube').kind).toBe('none');
+  });
+
+  it('disconnect prevents an old global cookie from resurrecting after reload', async () => {
+    // Older app versions could leave a global cookie plus a legacy platform value.
+    storage.set('extraArgs', JSON.stringify({ cookies: 'edge' }));
+    storage.set('platformCookies', JSON.stringify({ youtube: 'edge' }));
+
+    const store = useAppStore();
+    expect(store.getExtraArgsForUrl('https://www.youtube.com/watch?v=reload').cookies).toBe('edge');
+
+    store.clearPlatformCookie('youtube');
+    await flushMicrotasks();
+
+    // Simulate an app reload that reads the same persisted storage.
+    setActivePinia(createPinia());
+    const reloaded = useAppStore();
+    expect(reloaded.platformCookies.youtube ?? '').toBe('');
+    expect(reloaded.getExtraArgsForUrl('https://www.youtube.com/watch?v=reload').cookies).not.toBe(
+      'edge',
+    );
+  });
 });

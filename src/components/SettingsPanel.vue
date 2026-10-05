@@ -9,11 +9,14 @@ import QRCode from 'qrcode';
 import NeoIcon from './NeoIcon.vue';
 import { useFilenameSettings } from './settingsPanel.filename';
 import { createToolOperationQueue, toolVersionDisplay } from './settingsPanel.tools';
+import type { PlatformConnectionEntry } from '../application/platformCredentials';
 
 const store = useAppStore();
 const runToolOperation = createToolOperationQueue();
 const { t } = useI18n();
-defineEmits<{ close: [] }>();
+const props = defineProps<{ connectionEntry?: PlatformConnectionEntry }>();
+const emit = defineEmits<{ close: [] }>();
+let disposed = false;
 const { extraArgs, platformCookies } = toRefs(store);
 const needsCodecConfirmation = computed(() => store.legacyCodecPreferences);
 const useAutomaticCodecs = () => {
@@ -31,6 +34,7 @@ const selectedLangs = ref<string[]>([]);
 // Cookies State
 const cookieMode = ref<'none' | 'browser' | 'file'>('none');
 const browserOptions = ref<{ value: string; label: string }[]>([]);
+const detectedBrowsers = ref<string[]>([]);
 const selectedBrowser = ref('chrome');
 const cookieFile = ref('');
 const youtubeAuthStatus = ref<{ success: boolean; message: string } | null>(null);
@@ -201,6 +205,7 @@ const loadNotificationSettings = async () => {
 const fetchBrowsers = async () => {
     try {
         const detected = await store.getInstalledBrowsers();
+        detectedBrowsers.value = detected || [];
         // Full list of yt-dlp supported browsers
         const supported = ['chrome', 'firefox', 'edge', 'brave', 'opera', 'vivaldi', 'chromium', 'safari'];
 
@@ -332,14 +337,24 @@ const formatFileSize = (bytes: number) => {
 };
 
 onMounted(async () => {
-    checkNotificationPermission();
-    loadNotificationSettings();
+    if (!props.connectionEntry) {
+        checkNotificationPermission();
+        loadNotificationSettings();
+    }
+    if (props.connectionEntry === 'bilibili') {
+        userInfo.value = store.getBilibiliUserProfile();
+        await startBilibiliLogin();
+        return;
+    }
     await fetchBrowsers();
+    if (disposed) return;
     // Set default selected browser: Prefer Chrome, otherwise first available
     if (browserOptions.value.length > 0) {
         const available = browserOptions.value.map(b => b.value);
-        if (available.includes('chrome')) {
+        if (detectedBrowsers.value.includes('chrome')) {
             selectedBrowser.value = 'chrome';
+        } else if (detectedBrowsers.value.length > 0) {
+            selectedBrowser.value = detectedBrowsers.value[0];
         } else if (!available.includes(selectedBrowser.value)) {
             selectedBrowser.value = available[0];
         }
@@ -348,6 +363,10 @@ onMounted(async () => {
 
     // Load saved user info
     userInfo.value = store.getBilibiliUserProfile();
+    if (props.connectionEntry) {
+        openYouTubeModal();
+        if (props.connectionEntry === 'youtube-file') youtubeAuthType.value = 'file';
+    }
 });
 
 // Keep the YouTube login editor in sync with the persisted YouTube-only profile.
@@ -381,6 +400,16 @@ const selectCookieFile = async () => {
 
 const isCheckingBrowser = ref(false);
 const checkResult = ref<{ success: boolean, message: string } | null>(null);
+const checkedBrowser = ref('');
+let browserCheckEpoch = 0;
+const resetBrowserCheck = () => {
+    browserCheckEpoch++;
+    isCheckingBrowser.value = false;
+    checkedBrowser.value = '';
+    checkResult.value = null;
+};
+watch(selectedBrowser, resetBrowserCheck);
+onUnmounted(resetBrowserCheck);
 
 const copyStatus = ref('');
 const { copy: copyToClipboard } = useClipboard();
@@ -397,57 +426,33 @@ const copyEnvInfo = async () => {
     }
 };
 
-const autoDetectBrowser = async () => {
-    if (browserOptions.value.length === 0) return;
-
+const autoDetectBrowser = async (): Promise<boolean> => {
+    if (isCheckingBrowser.value) return false;
+    const browser = selectedBrowser.value.trim();
+    if (!browser) {
+        checkResult.value = { success: false, message: t('settings.youtube_auth.browser_required') };
+        return false;
+    }
+    const epoch = ++browserCheckEpoch;
     isCheckingBrowser.value = true;
-    checkResult.value = { success: true, message: t('settings.browser.scanning') }; // Optimistic color
-
+    checkedBrowser.value = '';
+    checkResult.value = null;
     try {
-        // Prioritize: Current selection -> Detected -> Others
-        const candidates = [...browserOptions.value];
-        // Move 'chromium' to top if user hasn't selected anything or if we want to force check it early for niche browsers
-        // Actually, just trust the list order (Detected first).
-
-        let found = false;
-        for (const opt of candidates) {
-            try {
-                // Quick check
-                const result = await store.checkBrowserCookies(opt.value);
-
-                if (result.success) {
-                    selectedBrowser.value = opt.value;
-                    checkResult.value = { success: true, message: t('settings.browser.auto_matched', { browser: opt.label }) };
-                    found = true;
-                    break;
-                } else {
-                    // Only show error if we are checking the user's specific selection (if they manually selected one)
-                    // OR if this is the last candidate and we haven't found any
-                    // For now, let's just log it
-                    console.log(`Check failed for ${opt.value}: ${result.message}`);
-
-                    // If we failed on the last one, show the specific error
-                    if (opt === candidates[candidates.length - 1]) {
-                        checkResult.value = { success: false, message: result.message };
-
-                        // Suggest File Mode if DPAPI failure or Lock
-                        if (result.kind === 'locked' || result.kind === 'decrypt_failed') {
-                            checkResult.value.message += ` (${t('settings.browser.switch_to_file_hint')})`;
-                        }
-                    }
-                }
-            } catch (e) {
-                console.warn(`Check failed for ${opt.value}`, e);
-            }
-        }
-
-        if (!found && !checkResult.value?.message) {
-            checkResult.value = { success: false, message: t('settings.browser.no_usable_cookies') };
-        }
+        const result = await store.checkBrowserCookies(browser);
+        if (epoch !== browserCheckEpoch || !showYouTubeModal.value) return false;
+        checkResult.value = {
+            success: result.success,
+            message: t(`settings.browser.${result.success ? 'read_success' : result.kind}`),
+        };
+        if (result.success) checkedBrowser.value = browser;
+        return result.success;
     } catch {
-        checkResult.value = { success: false, message: t('settings.browser.detect_failed') };
+        if (epoch === browserCheckEpoch && showYouTubeModal.value) {
+            checkResult.value = { success: false, message: t('settings.browser.execution_failed') };
+        }
+        return false;
     } finally {
-        isCheckingBrowser.value = false;
+        if (epoch === browserCheckEpoch) isCheckingBrowser.value = false;
     }
 };
 
@@ -472,12 +477,13 @@ const youtubeConnectionInfo = computed(() => {
     const profile = platformCookies.value.youtube?.trim();
     if (!profile) return '';
     const browser = browserOptions.value.find((option) => option.value.toLowerCase() === profile.toLowerCase());
-    if (browser) return t('settings.auth.connected_as', { name: browser.label });
+    if (browser) return t('settings.auth.credentials_from', { name: browser.label });
     const name = profile.split(/[/\\]/).pop() || 'cookies.txt';
-    return t('settings.auth.connected_as', { name });
+    return t('settings.auth.credentials_from', { name });
 });
 
 const openYouTubeModal = () => {
+    resetBrowserCheck();
     youtubeAuthStatus.value = null;
     showYouTubeModal.value = true;
     // Default to browser if available
@@ -488,7 +494,8 @@ const openYouTubeModal = () => {
     }
 };
 
-const confirmYouTubeAuth = () => {
+const confirmYouTubeAuth = async () => {
+    if (isCheckingBrowser.value) return;
     youtubeAuthStatus.value = null;
 
     if (youtubeAuthType.value === 'file') {
@@ -499,8 +506,14 @@ const confirmYouTubeAuth = () => {
             };
             return;
         }
+        const file = cookieFile.value;
+        const result = await store.importPlatformCookieFile('youtube', file,
+            () => !disposed && showYouTubeModal.value && youtubeAuthType.value === 'file' && cookieFile.value === file);
+        if (!result.ok) {
+            youtubeAuthStatus.value = { success: false, message: t(`input.cookie_state.${result.state}`) };
+            return;
+        }
         cookieMode.value = 'file';
-        store.setPlatformCookie('youtube', cookieFile.value);
     } else {
         if (!selectedBrowser.value.trim()) {
             youtubeAuthStatus.value = {
@@ -509,8 +522,11 @@ const confirmYouTubeAuth = () => {
             };
             return;
         }
+        const browser = selectedBrowser.value.trim();
+        if (checkedBrowser.value !== browser && !await autoDetectBrowser()) return;
+        if (!showYouTubeModal.value || selectedBrowser.value.trim() !== browser) return;
         cookieMode.value = 'browser';
-        store.setPlatformCookie('youtube', selectedBrowser.value);
+        store.setPlatformCookie('youtube', browser);
     }
 
     showYouTubeModal.value = false;
@@ -557,10 +573,12 @@ const startBilibiliLogin = async () => {
 
         // 1. Get QR Code
         const data = await store.getBilibiliQrCode();
+        if (disposed || !showBiliQr.value) return;
         biliQrKey.value = data.qrcode_key;
 
         // 2. Generate Image
         biliQrImg.value = await QRCode.toDataURL(data.url, { margin: 2, width: 200 });
+        if (disposed || !showBiliQr.value) return;
         biliQrStatus.value = t('settings.bili_login.status.scan_please');
 
         // 3. Start Polling
@@ -688,7 +706,9 @@ watch(showYouTubeModal, (open) => {
     if (open) {
         nextTick(() => focusFirstInModal(youtubeModalRef.value));
     } else {
+        resetBrowserCheck();
         releaseModalFocus();
+        if (props.connectionEntry) emit('close');
     }
 });
 
@@ -697,10 +717,12 @@ watch(showBiliQr, (open) => {
         nextTick(() => focusFirstInModal(biliModalRef.value));
     } else {
         releaseModalFocus();
+        if (props.connectionEntry) emit('close');
     }
 });
 
 onUnmounted(() => {
+    disposed = true;
     if (pollTimer) {
         clearInterval(pollTimer);
         pollTimer = null;
@@ -862,7 +884,7 @@ const handleUASelect = (e: Event) => {
 </script>
 
 <template>
-    <div class="settings-container">
+    <div v-if="!connectionEntry" class="settings-container">
         <div class="settings-header">
             <h3 id="settings-dialog-title">{{ t('settings.title') }}</h3>
             <button class="close-btn" @click="$emit('close')" :title="t('settings.close')" :aria-label="t('settings.close')">
@@ -916,7 +938,7 @@ const handleUASelect = (e: Event) => {
                     <div class="direct-login-area">
                         <!-- Bilibili -->
                         <div v-if="!isBilibiliLoggedIn" class="login-action">
-                            <button class="neo-button primary small" @click="startBilibiliLogin">
+                            <button class="neo-button platform-login-button small" data-platform="bilibili" @click="startBilibiliLogin">
                                 <NeoIcon name="tv" :size="14" class="u-mr-xs" /> {{ t('settings.auth.bili_login') }}
                             </button>
                             <span class="helper-text inline">{{ t('settings.auth.bili_helper') }}</span>
@@ -937,7 +959,7 @@ const handleUASelect = (e: Event) => {
 
                         <!-- YouTube (Redesigned) -->
                         <div v-if="!isYouTubeConnected" class="login-action" style="margin-top: 12px;">
-                            <button class="neo-button secondary small" @click="openYouTubeModal">
+                            <button class="neo-button platform-login-button small" data-platform="youtube" @click="openYouTubeModal">
                                 <NeoIcon name="play" :size="14" class="u-mr-xs" /> {{ t('settings.auth.youtube_login') }}
                             </button>
                             <span class="helper-text inline">{{ t('settings.auth.youtube_helper') }}</span>
@@ -945,8 +967,8 @@ const handleUASelect = (e: Event) => {
 
                         <div v-else class="logged-in-state fade-in" style="margin-top: 12px;">
                             <div class="user-badge cookie-path-preview" :data-cookie-path="platformCookies.youtube" tabindex="0" :aria-label="platformCookies.youtube">
-                                <NeoIcon name="check" :size="14" class="u-mr-xs text-success" />
-                                <span class="cookie-connection-name">{{ youtubeConnectionInfo }}</span>
+                                <NeoIcon name="cookie" :size="14" class="u-mr-xs" />
+                                <span class="cookie-connection-name">{{ youtubeConnectionInfo }}<small class="helper-text">{{ t('settings.auth.credentials_pending') }}</small></span>
                             </div>
                             <button class="text-btn danger small" @click="disconnectYouTube">
                                 {{ t('settings.auth.logout') }}
@@ -1468,11 +1490,11 @@ const handleUASelect = (e: Event) => {
 
                 <div class="auth-tabs">
                     <button class="auth-tab" :class="{ active: youtubeAuthType === 'browser' }"
-                        @click="youtubeAuthType = 'browser'">
+                        :disabled="isCheckingBrowser" @click="youtubeAuthType = 'browser'">
                         {{ t('settings.youtube_auth.browser_tab') }}
                     </button>
                     <button class="auth-tab" :class="{ active: youtubeAuthType === 'file' }"
-                        @click="youtubeAuthType = 'file'">
+                        :disabled="isCheckingBrowser" @click="youtubeAuthType = 'file'">
                         {{ t('settings.youtube_auth.file_tab') }}
                     </button>
                 </div>
@@ -1492,6 +1514,7 @@ const handleUASelect = (e: Event) => {
                     <p class="small-text text-muted">{{ t('settings.youtube_auth.browser_step') }}</p>
                     <div class="browser-select-row" style="display: flex; gap: 8px; align-items: center;">
                         <select v-if="browserOptions.length > 0" v-model="selectedBrowser" class="neo-select"
+                            :disabled="isCheckingBrowser"
                             style="flex: 1;" :aria-label="t('settings.youtube_auth.browser_select_label')">
                             <option v-for="opt in browserOptions" :key="opt.value" :value="opt.value">
                                 {{ opt.label }}
@@ -1499,15 +1522,16 @@ const handleUASelect = (e: Event) => {
                         </select>
                         <button class="neo-button secondary small" @click="autoDetectBrowser"
                             :disabled="isCheckingBrowser" :title="t('settings.youtube_auth.auto_scan_title')">
-                            <span v-if="isCheckingBrowser"><NeoIcon name="hourglass" :size="13" class="u-mr-xs" /></span>
-                            <span v-else><NeoIcon name="zap" :size="13" class="u-mr-xs" /> {{ t('settings.youtube_auth.auto_match') }}</span>
+                            <span><NeoIcon :name="isCheckingBrowser ? 'hourglass' : 'zap'" :size="13" class="u-mr-xs" /> {{ t('settings.youtube_auth.auto_match') }}</span>
                         </button>
                     </div>
-                    <div v-if="checkResult" class="small-text"
+                    <p v-if="isCheckingBrowser" class="small-text text-muted" role="status">{{ t('settings.browser.scanning') }}</p>
+                    <div v-if="checkResult" class="small-text" role="status"
                         :class="checkResult.success ? 'text-success' : 'text-error'" style="margin-top: 4px; display: flex; align-items: center; gap: 4px;">
                         <NeoIcon :name="checkResult.success ? 'check' : 'warn'" :size="13" />
                         <span>{{ checkResult.message.replace(/^[✅❌]\s*/, '') }}</span>
                     </div>
+                    <button v-if="checkResult && !checkResult.success" class="neo-button small" style="margin-top: 8px;" @click="youtubeAuthType = 'file'">{{ t('settings.youtube_auth.use_file') }}</button>
 
                     <div class="text-warning small-text" style="margin-top: 8px;">
                         {{ t('settings.youtube_auth.uncommon_browser_tip') }}
@@ -1565,10 +1589,10 @@ const handleUASelect = (e: Event) => {
                     <span>{{ youtubeAuthStatus.message }}</span>
                 </div>
 
-                <div class="modal-footer">
-                    <button class="neo-button" @click="showYouTubeModal = false">{{ t('settings.youtube_auth.cancel') }}</button>
-                    <button class="neo-button primary" @click="confirmYouTubeAuth">{{ t('settings.youtube_auth.confirm') }}</button>
-                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="neo-button" @click="showYouTubeModal = false">{{ t('settings.youtube_auth.cancel') }}</button>
+                <button class="neo-button primary" :disabled="isCheckingBrowser" :aria-busy="isCheckingBrowser" @click="confirmYouTubeAuth">{{ t('settings.youtube_auth.confirm') }}</button>
             </div>
         </div>
     </div>
@@ -1757,6 +1781,20 @@ const handleUASelect = (e: Event) => {
     min-height: 0;
     overflow-y: auto;
     padding: var(--spacing-lg);
+}
+
+.auth-modal > .modal-header,
+.auth-modal > .modal-footer {
+    flex-shrink: 0;
+}
+
+.auth-modal > .modal-footer {
+    margin-top: 0;
+    padding: var(--spacing-md) var(--spacing-lg);
+}
+
+.cookie-connection-name > .helper-text {
+    display: block;
 }
 
 .auth-desc {

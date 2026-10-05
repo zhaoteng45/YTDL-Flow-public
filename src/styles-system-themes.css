@@ -7,7 +7,7 @@
    Fluent / Windows 11
    ================================ */
 :root[data-theme="fluent"] {
-  --brand-primary: #843D4B;
+  --brand-primary: var(--theme-preview-fluent);
   --brand-hover: #71313E;
   --brand-pressed: #5E2633;
   --brand-soft: #F2E5E7;

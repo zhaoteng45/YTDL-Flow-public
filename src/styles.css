@@ -1,6 +1,15 @@
 :root {
+  /* Platform identity, independent of app themes. Sources: youtube.com logo
+     and bilibili.com homepage --brand_pink (--Pi5), checked 2026-10-05. */
+  --platform-youtube: #FF0033;
+  --platform-bilibili: #FF6699;
+  --platform-on-brand: #0F0F0F;
+  --platform-hover-mix: #FFFFFF;
   /* Default palette and shared state authority. Pre-init fallback is YTDL Clean. */
-  --brand-primary: #2457A7;
+  --theme-preview-material: #2457A7;
+  --theme-preview-fluent: #843D4B;
+  --theme-preview-cobalt-butter: #B8CCE8;
+  --brand-primary: var(--theme-preview-material);
   --brand-hover: #1C468B;
   --brand-pressed: #16386E;
   --brand-on-primary: #FFFFFF;
@@ -128,7 +137,7 @@
 
 /* Internal data-theme id retained so existing saved preferences keep working. */
 [data-theme="cobalt-butter"] {
-  --brand-primary: #B8CCE8;
+  --brand-primary: var(--theme-preview-cobalt-butter);
   --brand-hover: #D0DEF0;
   --brand-pressed: #A4BCDC;
   --brand-soft: #28384B;

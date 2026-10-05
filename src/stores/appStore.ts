@@ -13,10 +13,24 @@ import { THEMES, type AppTheme } from '../constants';
 import { appStorage, STORAGE_KEYS } from '../utils/storage';
 import { createToolchainOperations } from '../application/toolchainOperations';
 import { createNotificationOperations } from '../application/notificationOperations';
-import { createCredentialOperations } from '../application/credentialOperations';
+import { createCredentialOperations, type CookieFileInspection } from '../application/credentialOperations';
 import { createAppUpdateOperations } from '../application/appUpdateOperations';
 import { createDesktopFileOperations } from '../application/desktopFileOperations';
-import { resolveExtraArgsForUrl, type CredentialPlatform, type PlatformCookieProfiles } from '../application/platformCredentials';
+import {
+  CREDENTIAL_PLATFORMS,
+  PLATFORM_CANONICAL_URL,
+  migrateLegacyPlatformConfigs,
+  inferLegacySourceKind,
+  normalizePlatformCookieProfiles,
+  normalizePlatformCredentialConfigs,
+  resolveEffectivePlatformSource,
+  resolveExtraArgsForUrl,
+  updatePlatformBackupFile,
+  type CredentialPlatform,
+  type PlatformCookieProfiles,
+  type PlatformCredentialConfigs,
+  type PlatformFileImportResult,
+} from '../application/platformCredentials';
 import type { ExtraArgs } from '../types';
 import { resolveQualitySettings } from '../application/qualitySettings';
 
@@ -74,29 +88,108 @@ export const useAppStore = defineStore('app', () => {
     appStorage.set(STORAGE_KEYS.QUALITY_PREFERENCES_VERSION, 3);
   };
   watch([() => extraArgs.value.videoCodec, () => extraArgs.value.audioCodec], confirmCodecPreferences);
-  const savedPlatformCookies = appStorage.get<PlatformCookieProfiles>(STORAGE_KEYS.PLATFORM_COOKIES, {});
-  const platformCookies = ref<PlatformCookieProfiles>({ ...savedPlatformCookies });
-  if (!platformCookies.value.youtube && !platformCookies.value.bilibili) {
-    const legacyCookies = extraArgs.value.cookies?.trim();
-    if (legacyCookies) {
-      if (legacyCookies.toLowerCase().includes('bilibili_cookies')) {
-        platformCookies.value.bilibili = legacyCookies;
-      } else {
-        platformCookies.value.youtube = legacyCookies;
-      }
+  const platformCookies = ref<PlatformCookieProfiles>(
+    normalizePlatformCookieProfiles(appStorage.get<unknown>(STORAGE_KEYS.PLATFORM_COOKIES, {})),
+  );
+  // Single source owner: explicit preferred/backup/authorization config.
+  const platformCredentialConfigs = ref<PlatformCredentialConfigs>(
+    migrateLegacyPlatformConfigs(
+      normalizePlatformCredentialConfigs(appStorage.get<unknown>(STORAGE_KEYS.PLATFORM_CREDENTIALS, {})),
+      platformCookies.value,
+      extraArgs.value.cookies,
+    ),
+  );
+  // Keep the legacy string view coherent for the existing SettingsPanel until its next phase.
+  for (const platform of CREDENTIAL_PLATFORMS) {
+    const preferred = platformCredentialConfigs.value[platform]?.preferred;
+    if (preferred && (preferred.kind === 'browser' || preferred.kind === 'file') && preferred.ref) {
+      platformCookies.value[platform] = preferred.ref;
     }
   }
 
-  const setPlatformCookie = (platform: CredentialPlatform, value: string) => {
-    const normalized = value.trim();
-    const next = { ...platformCookies.value };
-    if (normalized) next[platform] = normalized;
-    else delete next[platform];
-    platformCookies.value = next;
+  const persistPlatformConfig = (
+    platform: CredentialPlatform,
+    config: PlatformCredentialConfigs[CredentialPlatform],
+  ) => {
+    platformCredentialConfigs.value = { ...platformCredentialConfigs.value, [platform]: config };
   };
+
+  // Compatibility adapter for SettingsPanel until the next phase. It writes the
+  // legacy string view and the explicit source model from the same decision.
+  const credentialEpochs: Record<CredentialPlatform, number> = { youtube: 0, bilibili: 0 };
+  const setPlatformCookie = (platform: CredentialPlatform, value: string) => {
+    credentialEpochs[platform]++;
+    const normalized = value.trim();
+    const nextProfiles = { ...platformCookies.value };
+    if (normalized) nextProfiles[platform] = normalized;
+    else delete nextProfiles[platform];
+    platformCookies.value = nextProfiles;
+    persistPlatformConfig(
+      platform,
+      normalized
+        ? {
+            ...platformCredentialConfigs.value[platform],
+            preferred: { kind: inferLegacySourceKind(normalized), ref: normalized },
+          }
+        : { preferred: { kind: 'none' } },
+    );
+  };
+
+  // Disconnect clears the platform's preferred/backup/authorization and records an
+  // explicit `none` so old globals cannot resurrect on reload.
   const clearPlatformCookie = (platform: CredentialPlatform) => setPlatformCookie(platform, '');
+
+  const getPlatformCredentialConfig = (platform: CredentialPlatform) =>
+    platformCredentialConfigs.value[platform];
+
+  const getEffectivePlatformSource = (platform: CredentialPlatform) =>
+    resolveEffectivePlatformSource(platform, platformCredentialConfigs.value, platformCookies.value);
+
+  const importPlatformCookieFile = async (
+    platform: CredentialPlatform,
+    filePath: string,
+    isCurrent: () => boolean = () => true,
+  ): Promise<PlatformFileImportResult> => {
+    const epoch = ++credentialEpochs[platform];
+    const normalized = filePath.trim();
+    if (!normalized) return { ok: false, state: 'unreadable' };
+    let inspection: CookieFileInspection;
+    try {
+      inspection = await credentials.inspectCookieFile(normalized, PLATFORM_CANONICAL_URL[platform]);
+    } catch {
+      return { ok: false, state: 'unreadable' };
+    }
+    if (epoch !== credentialEpochs[platform] || !isCurrent()) return { ok: false, state: 'unreadable' };
+    if (inspection.state !== 'imported') {
+      // Reject invalid/expired/mismatch without changing the existing config.
+      return { ok: false, state: inspection.state };
+    }
+    platformCookies.value = { ...platformCookies.value, [platform]: normalized };
+    persistPlatformConfig(platform, {
+      ...platformCredentialConfigs.value[platform],
+      preferred: { kind: 'file', ref: normalized },
+    });
+    return { ok: true, state: 'imported' };
+  };
+
+  const setPlatformBackupFile = (
+    platform: CredentialPlatform,
+    filePath: string,
+    authorized = false,
+  ) => {
+    persistPlatformConfig(
+      platform,
+      updatePlatformBackupFile(platformCredentialConfigs.value[platform], filePath, authorized),
+    );
+  };
+
   const getExtraArgsForUrl = (url: string): ExtraArgs =>
-    resolveExtraArgsForUrl(extraArgs.value, platformCookies.value, url);
+    resolveExtraArgsForUrl(
+      extraArgs.value,
+      platformCookies.value,
+      url,
+      platformCredentialConfigs.value,
+    );
 
   const getBilibiliUserProfile = () =>
     appStorage.get<{ uname: string; face: string } | null>(STORAGE_KEYS.BILI_USER_INFO, null);
@@ -164,6 +257,10 @@ export const useAppStore = defineStore('app', () => {
 
   watch(platformCookies, (newVal) => {
     appStorage.set(STORAGE_KEYS.PLATFORM_COOKIES, newVal);
+  }, { deep: true });
+
+  watch(platformCredentialConfigs, (newVal) => {
+    appStorage.set(STORAGE_KEYS.PLATFORM_CREDENTIALS, newVal);
   }, { deep: true });
 
   const checkDependencies = async () => {
@@ -249,8 +346,13 @@ export const useAppStore = defineStore('app', () => {
     legacyCodecPreferences,
     confirmCodecPreferences,
     platformCookies,
+    platformCredentialConfigs,
     setPlatformCookie,
     clearPlatformCookie,
+    getPlatformCredentialConfig,
+    getEffectivePlatformSource,
+    importPlatformCookieFile,
+    setPlatformBackupFile,
     getExtraArgsForUrl,
     theme,
     // 目录 / 系统

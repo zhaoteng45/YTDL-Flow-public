@@ -1758,3 +1758,67 @@
 :root .cookie-path-preview[data-cookie-path]:is(:hover, :focus-within)::after {
   display: block;
 }
+
+/* Official platform identity stays consistent in all three app themes. */
+:root:is([data-theme="cobalt-butter"], [data-theme="fluent"], [data-theme="material"]) .platform-login-button[data-platform="youtube"] {
+  --platform-accent: var(--platform-youtube);
+}
+:root:is([data-theme="cobalt-butter"], [data-theme="fluent"], [data-theme="material"]) .platform-login-button[data-platform="bilibili"] {
+  --platform-accent: var(--platform-bilibili);
+}
+:root:is([data-theme="cobalt-butter"], [data-theme="fluent"], [data-theme="material"]) .neo-button.platform-login-button {
+  background: var(--platform-accent);
+  color: var(--platform-on-brand);
+  border-color: var(--platform-accent);
+  flex-shrink: 0;
+  white-space: nowrap;
+  min-height: 44px;
+}
+:root:is([data-theme="cobalt-butter"], [data-theme="fluent"], [data-theme="material"]) .neo-button.platform-login-button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--platform-accent), var(--platform-hover-mix) 8%);
+  color: var(--platform-on-brand);
+}
+:root:is([data-theme="cobalt-butter"], [data-theme="fluent"], [data-theme="material"]) .neo-button.platform-login-button:active:not(:disabled) {
+  background: color-mix(in srgb, var(--platform-accent), var(--platform-hover-mix) 16%);
+}
+:root:is([data-theme="cobalt-butter"], [data-theme="fluent"], [data-theme="material"]) .neo-button.platform-login-button:focus-visible {
+  outline: 3px solid var(--color-text);
+  outline-offset: 3px;
+}
+:root:is([data-theme="cobalt-butter"], [data-theme="fluent"], [data-theme="material"]) .login-action:has(.platform-login-button) {
+  flex-wrap: wrap;
+}
+:root:is([data-theme="cobalt-butter"], [data-theme="fluent"], [data-theme="material"]) .platform-connections {
+  display: grid;
+  gap: var(--spacing-sm);
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--spacing-sm);
+  min-width: 0;
+}
+:root:is([data-theme="cobalt-butter"], [data-theme="fluent"], [data-theme="material"]) .platform-connection-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
+  min-width: 0;
+}
+:root:is([data-theme="cobalt-butter"], [data-theme="fluent"], [data-theme="material"]) .platform-connection-summary {
+  flex: 1 1 180px;
+  min-width: 0;
+  display: grid;
+  gap: var(--spacing-xs);
+}
+:root:is([data-theme="cobalt-butter"], [data-theme="fluent"], [data-theme="material"]) .platform-source {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+:root:is([data-theme="cobalt-butter"], [data-theme="fluent"], [data-theme="material"]) .platform-connection-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-xs);
+  min-width: 0;
+}

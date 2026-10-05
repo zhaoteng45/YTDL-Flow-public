@@ -36,6 +36,18 @@ const tasks = computed<TaskPresentationRow[]>(() => taskRows.value);
 const theme = computed<AppTheme>(() => unref(store.theme));
 
 const showSettings = ref(false);
+const connectionEntry = ref<import('./application/platformCredentials').PlatformConnectionEntry | null>(null);
+let connectionReturnFocus: HTMLElement | null = null;
+const openConnection = (entry: NonNullable<typeof connectionEntry.value>) => {
+  connectionReturnFocus = document.activeElement as HTMLElement | null;
+  connectionEntry.value = entry;
+};
+const closeConnection = async () => {
+  connectionEntry.value = null;
+  await nextTick();
+  connectionReturnFocus?.focus();
+  connectionReturnFocus = null;
+};
 // Resource Capture is paused by product decision. Keep its implementation and
 // runtime seam available, but do not expose the sidebar entry until resumed.
 const resourceCaptureVisible = false;
@@ -77,7 +89,7 @@ const trapTabKey = (container: HTMLElement | null, event: KeyboardEvent) => {
   }
 };
 
-const isModalOpen = computed(() => showSettings.value);
+const isModalOpen = computed(() => showSettings.value || connectionEntry.value !== null);
 
 watch(showSettings, async (open) => {
   if (open) {
@@ -286,7 +298,7 @@ onUnmounted(async () => {
             <NeoIcon name="sliders" :size="18" class="svg-icon" />
             <span>{{ tasks.length === 0 ? t('app.workspace_start') : t('app.operation_panel') }}</span>
           </h3>
-          <InputSection ref="inputSectionRef" @analyze="taskActions.analyzeUrls" />
+            <InputSection ref="inputSectionRef" @analyze="taskActions.analyzeUrls" @connect="openConnection" />
         </div>
 
         <div v-if="resourceCaptureVisible" class="neo-box sidebar-panel glass-panel capture-sidebar-panel">
@@ -340,6 +352,7 @@ onUnmounted(async () => {
 
     </div>
 
+    <SettingsPanel v-if="connectionEntry" :connection-entry="connectionEntry" @close="closeConnection" />
     <!-- Settings Modal -->
     <div
       v-if="showSettings"
