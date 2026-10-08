@@ -1,4 +1,8 @@
 import type { ExtraArgs } from '../types';
+import type { DownloadStartRequest } from '../../packages/contracts/src';
+import type { CredentialOperations } from './credentialOperations';
+import type { CurrentAnalysisInputs } from '../../packages/application/src/current-analysis-service';
+import type { CurrentCredentialSelection } from '../../packages/contracts/src';
 
 export interface PlatformCookieProfiles {
   youtube?: string;
@@ -62,6 +66,68 @@ export interface PlatformCredentialConfig {
 
 export type PlatformCredentialConfigs = Partial<Record<CredentialPlatform, PlatformCredentialConfig>>;
 
+/** The caller copies config and ExtraArgs synchronously before the first await. */
+export async function resolveYouTubeAnalysisInputs(
+  extraArgs: ExtraArgs,
+  preferred: EffectivePlatformSource,
+  _legacyBackup: PlatformBackupFile | undefined,
+  operations: Pick<CredentialOperations, 'checkBrowserCookies' | 'inspectCookieFile'>,
+  _isCurrent: () => boolean,
+): Promise<CurrentAnalysisInputs> {
+  const result = (cookies: string, credential: CurrentCredentialSelection): CurrentAnalysisInputs => ({
+    extraArgs: { ...extraArgs, cookies }, credential,
+  });
+  const inspect = async (path: string): Promise<PlatformFileImportFailure | undefined> => {
+    try {
+      const inspection = await operations.inspectCookieFile(path, PLATFORM_CANONICAL_URL.youtube);
+      return inspection.state === 'imported' ? undefined : inspection.state;
+    } catch { return 'unreadable'; }
+  };
+  if (preferred.kind === 'none' || preferred.kind === 'unspecified') {
+    return result('', { source: 'anonymous', reason: 'unconfigured' });
+  }
+  if (preferred.kind === 'file') {
+    const fileFailure = await inspect(preferred.ref);
+    return fileFailure
+      ? result('', { source: 'anonymous', reason: 'preferred-file-unavailable', fileFailure })
+      : result(preferred.ref, { source: 'file', reason: 'file-ok' });
+  }
+  let browserFailure: CurrentCredentialSelection['browserFailure'];
+  try {
+    const check = await operations.checkBrowserCookies(preferred.ref);
+    if (check.kind === 'ok') return result(preferred.ref, { source: 'browser', reason: 'browser-ok' });
+    browserFailure = check.kind;
+  } catch { browserFailure = 'execution_failed'; }
+  // Legacy backup references remain persisted for compatibility, but new
+  // analyses use only the explicitly selected source. Never read another file.
+  return result('', { source: 'anonymous', reason: 'browser-unavailable', browserFailure });
+}
+
+/**
+ * A11: validate only the file reference frozen in the executable request.
+ * This runs immediately before engine dispatch, including delayed queue starts.
+ * Never silently replace a bad file with browser/global/anonymous credentials.
+ */
+export async function validateFrozenYouTubeCookieFile(
+  request: DownloadStartRequest,
+  operations: Pick<CredentialOperations, 'inspectCookieFile'>,
+): Promise<void> {
+  const cookieRef = request.extraArgs?.cookies;
+  if (request.captureContextId || !request.sourceUrl ||
+    detectCredentialPlatform(request.sourceUrl) !== 'youtube' ||
+    typeof cookieRef !== 'string' || !cookieRef.trim() ||
+    inferLegacySourceKind(cookieRef) !== 'file') {
+    return;
+  }
+  try {
+    const inspection = await operations.inspectCookieFile(cookieRef.trim(), PLATFORM_CANONICAL_URL.youtube);
+    if (inspection.state === 'imported') return;
+  } catch {
+    // The native error may contain a private path. Do not project it to the task.
+  }
+  throw new Error('COOKIE_FILE_REANALYSIS_REQUIRED');
+}
+
 export type PlatformFileImportFailure = 'invalid' | 'expired' | 'mismatch' | 'unreadable';
 
 export type PlatformFileImportResult =
@@ -78,7 +144,7 @@ const SOURCE_KINDS: readonly PlatformCredentialSourceKind[] = ['browser', 'file'
 /** A path-like legacy value is a cookies file; everything else is a browser name. */
 export function inferLegacySourceKind(value: string): 'browser' | 'file' {
   const trimmed = value.trim();
-  if (/[\\/]/.test(trimmed) || /\.txt$/i.test(trimmed)) return 'file';
+  if (/[\\/]/.test(trimmed) || /\.(txt|json)$/i.test(trimmed)) return 'file';
   return 'browser';
 }
 
@@ -100,10 +166,10 @@ function normalizeSource(raw: unknown): PlatformCredentialSource | undefined {
   if (typeof kind !== 'string' || !SOURCE_KINDS.includes(kind as PlatformCredentialSourceKind)) {
     return undefined;
   }
-  if (kind === 'none') return { kind: 'none' };
+  if (kind === 'none') return { ...(raw as object), kind: 'none' };
   const ref = (raw as { ref?: unknown }).ref;
   if (typeof ref !== 'string' || !ref.trim()) return undefined;
-  return { kind: kind === 'file' ? 'file' : 'browser', ref: ref.trim() };
+  return { ...(raw as object), kind: kind === 'file' ? 'file' : 'browser', ref: ref.trim() };
 }
 
 /**
@@ -126,6 +192,7 @@ export function normalizePlatformCredentialConfigs(raw: unknown): PlatformCreden
       const path = (backup as { path?: unknown }).path;
       if (typeof path === 'string' && path.trim()) {
         normalized.backup = {
+          ...(backup as object),
           path: path.trim(),
           authorized: (backup as { authorized?: unknown }).authorized === true,
         };
@@ -144,6 +211,8 @@ export function normalizePlatformCredentialConfigs(raw: unknown): PlatformCreden
  * Legacy migration preserves the old effective source and never grants backup
  * authorization. An explicit platform config (including explicit `none`) always
  * wins, so a disconnected platform cannot be resurrected by old globals.
+ * A global browser keeps its historical YouTube mapping; a global file has no
+ * reliable platform owner, so it stays only in the legacy global value.
  */
 export function migrateLegacyPlatformConfigs(
   configs: PlatformCredentialConfigs,
@@ -159,13 +228,8 @@ export function migrateLegacyPlatformConfigs(
       result[platform] = { preferred: { kind: inferLegacySourceKind(legacy), ref: legacy } };
       continue;
     }
-    if (!global) continue;
-    // Only the platform the old single global value belonged to keeps its source.
-    const target: CredentialPlatform = global.toLowerCase().includes('bilibili_cookies')
-      ? 'bilibili'
-      : 'youtube';
-    if (target === platform) {
-      result[platform] = { preferred: { kind: inferLegacySourceKind(global), ref: global } };
+    if (global && platform === 'youtube' && inferLegacySourceKind(global) === 'browser') {
+      result[platform] = { preferred: { kind: 'browser', ref: global } };
     }
   }
   return result;
@@ -173,8 +237,8 @@ export function migrateLegacyPlatformConfigs(
 
 /**
  * Resolves the preferred source for one platform. Explicit config wins over the
- * legacy string map; an explicit `none` blocks global fallthrough, while an
- * unspecified platform keeps the historical global behavior.
+ * legacy string map; an explicit `none` or an unowned platform never falls
+ * through to the global cookie reference.
  */
 export function resolveEffectivePlatformSource(
   platform: CredentialPlatform,
@@ -200,14 +264,21 @@ export function updatePlatformBackupFile(
   path: string,
   authorized: boolean,
 ): PlatformCredentialConfig {
-  const preferred = config?.preferred ?? { kind: 'none' };
+  const base: PlatformCredentialConfig = config ?? { preferred: { kind: 'none' } };
+  const { backup: previous, ...fields } = base;
+  const preferred = { ...(fields.preferred ?? { kind: 'none' as const }) };
   const normalized = path.trim();
-  if (!normalized) return { preferred };
-  const sameRef = config?.backup?.path === normalized;
+  if (!normalized) return { ...fields, preferred };
+  const sameRef = previous?.path === normalized;
   const nextAuthorized = sameRef
-    ? config?.backup?.authorized === true || authorized === true
+    ? previous?.authorized === true || authorized === true
     : authorized === true;
-  return { preferred, backup: { path: normalized, authorized: nextAuthorized } };
+  const carried = sameRef ? previous : undefined;
+  return {
+    ...fields,
+    preferred,
+    backup: { ...carried, path: normalized, authorized: nextAuthorized },
+  };
 }
 
 export function resolveExtraArgsForUrl(
@@ -221,8 +292,9 @@ export function resolveExtraArgsForUrl(
   if (!platform) return resolved;
   const source = resolveEffectivePlatformSource(platform, configs, profiles);
 
-  if (source.kind === 'none') {
-    // Explicit disconnect must not fall through to a legacy global cookie value.
+  const globalCookies = globalExtraArgs.cookies?.trim();
+  if (source.kind === 'none' || (source.kind === 'unspecified' && globalCookies && inferLegacySourceKind(globalCookies) === 'file')) {
+    // Explicit disconnect and an unowned global cookie file must not reach the platform.
     resolved.cookies = '';
   } else if (source.kind !== 'unspecified') {
     resolved.cookies = source.ref;

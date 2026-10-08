@@ -4,6 +4,7 @@ export type { CurrentAnalysisMedia, CurrentAnalysisRequest } from './current-ana
 export type { SmartClientDecision, YouTubeFormatCapability, YouTubeDiagnostic, YouTubeClientCapability } from './youtube';
 export type {
   CurrentCapturedTaskRef,
+  CurrentCredentialSelection,
   CurrentFailureKind,
   CurrentTaskActions,
   CurrentTaskFailureCode,

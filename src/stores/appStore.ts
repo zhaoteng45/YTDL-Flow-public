@@ -18,6 +18,7 @@ import { createAppUpdateOperations } from '../application/appUpdateOperations';
 import { createDesktopFileOperations } from '../application/desktopFileOperations';
 import {
   CREDENTIAL_PLATFORMS,
+  detectCredentialPlatform,
   PLATFORM_CANONICAL_URL,
   migrateLegacyPlatformConfigs,
   inferLegacySourceKind,
@@ -25,6 +26,8 @@ import {
   normalizePlatformCredentialConfigs,
   resolveEffectivePlatformSource,
   resolveExtraArgsForUrl,
+  resolveYouTubeAnalysisInputs,
+  validateFrozenYouTubeCookieFile,
   updatePlatformBackupFile,
   type CredentialPlatform,
   type PlatformCookieProfiles,
@@ -175,12 +178,15 @@ export const useAppStore = defineStore('app', () => {
   const setPlatformBackupFile = (
     platform: CredentialPlatform,
     filePath: string,
-    authorized = false,
+    authorized?: boolean,
   ) => {
-    persistPlatformConfig(
-      platform,
-      updatePlatformBackupFile(platformCredentialConfigs.value[platform], filePath, authorized),
-    );
+    credentialEpochs[platform]++;
+    const current = platformCredentialConfigs.value[platform];
+    const next = updatePlatformBackupFile(current, filePath, authorized === true);
+    if (authorized === false && next.backup) {
+      next.backup = { ...next.backup, authorized: false };
+    }
+    persistPlatformConfig(platform, next);
   };
 
   const getExtraArgsForUrl = (url: string): ExtraArgs =>
@@ -190,6 +196,20 @@ export const useAppStore = defineStore('app', () => {
       url,
       platformCredentialConfigs.value,
     );
+
+  const resolveAnalysisExtraArgs = (url: string, isCurrent: () => boolean = () => true) => {
+    // No check result writes preferences. An in-flight attempt owns this copy,
+    // even when the user changes or disconnects the platform meanwhile.
+    const args = getExtraArgsForUrl(url);
+    if (detectCredentialPlatform(url) !== 'youtube') return Promise.resolve({ extraArgs: args });
+    const source = { ...getEffectivePlatformSource('youtube') };
+    const configuredBackup = platformCredentialConfigs.value.youtube?.backup;
+    const backup = configuredBackup ? { ...configuredBackup } : undefined;
+    return resolveYouTubeAnalysisInputs(args, source, backup, credentials, isCurrent);
+  };
+
+  const validateDownloadCredential = (request: import('../../packages/contracts/src').DownloadStartRequest) =>
+    validateFrozenYouTubeCookieFile(request, credentials);
 
   const getBilibiliUserProfile = () =>
     appStorage.get<{ uname: string; face: string } | null>(STORAGE_KEYS.BILI_USER_INFO, null);
@@ -354,6 +374,8 @@ export const useAppStore = defineStore('app', () => {
     importPlatformCookieFile,
     setPlatformBackupFile,
     getExtraArgsForUrl,
+    resolveAnalysisExtraArgs,
+    validateDownloadCredential,
     theme,
     // 目录 / 系统
     checkDependencies,

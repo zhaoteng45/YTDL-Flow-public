@@ -14,18 +14,18 @@ function run(cmd) {
 
 console.log('🏗️  Starting Production Build Sequence...');
 
-// 1. Cleanup Zombies
-run('bun run cleanup');
+// Builds do not terminate unrelated processes or delete temporary credentials.
+// Rust startup owns the safe stale-cookie cleanup lifecycle.
 
-// 2. Type Check (tsc)
+// 1. Type Check (tsc)
 console.log('\n📝 Running Type Check...');
 run('bun run typecheck');
 
-// 3. Lint
+// 2. Lint
 console.log('\n🔍 Running Linter...');
 run('bun run lint');
 
-// 4. Tauri Build (which runs the frontend build hook)
+// 3. Tauri Build (which runs the frontend build hook)
 console.log('\n🦀 Building Tauri App...');
 run('bun run tauri:build');
 

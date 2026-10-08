@@ -41,6 +41,14 @@ export interface CurrentTaskActions {
   readonly canReanalyze: boolean;
 }
 
+/** Safe attempt diagnostics: no cookie values, file paths or native messages. */
+export interface CurrentCredentialSelection {
+  source: 'browser' | 'file' | 'anonymous';
+  reason: 'browser-ok' | 'file-ok' | 'backup-file' | 'unconfigured' | 'browser-unavailable' | 'backup-not-authorized' | 'backup-unavailable' | 'preferred-file-unavailable' | 'smart-anonymous';
+  browserFailure?: 'invalid_browser' | 'locked' | 'permission_denied' | 'not_found' | 'decrypt_failed' | 'execution_failed';
+  fileFailure?: 'invalid' | 'expired' | 'mismatch' | 'unreadable';
+}
+
 export interface CurrentTaskRow {
   readonly rowId: string;
   readonly attemptId: string;
@@ -49,6 +57,7 @@ export interface CurrentTaskRow {
   /** Monotonic presentation-order key owned by CurrentTaskService. */
   readonly orderKey: number;
   readonly metadata?: Readonly<CurrentAnalysisMedia>;
+  readonly credential?: Readonly<CurrentCredentialSelection>;
   readonly capture?: CurrentCapturedTaskRef;
   readonly selectedFormat?: CurrentDownloadFormat;
   readonly taskOverrideArgs?: Readonly<Partial<CurrentExtraArgs>>;

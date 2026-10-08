@@ -9,6 +9,118 @@ pub struct CookieInspection {
     pub fresh: usize,
 }
 
+/// JSON cookie exports express subdomain scope with `hostOnly`. When the flag
+/// is absent, the leading-dot convention applies. Inspection and Netscape
+/// conversion must agree on this rule or an accepted file loses its scope.
+pub(crate) fn json_host_only(domain: &str, cookie: &serde_json::Value) -> bool {
+    cookie
+        .get("hostOnly")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(!domain.starts_with('.'))
+}
+
+/// Epoch-second normalization shared by the inspection gate and the Netscape
+/// exporter. An explicit `session:true` or a total absence of date fields is a
+/// session cookie (0). A finite date is floored, never rounded, so conversion
+/// cannot extend validity. Non-numeric or non-finite dates are rejected
+/// instead of defaulting to a future date.
+pub(crate) fn json_expiry(cookie: &serde_json::Value) -> Result<i64, ()> {
+    if cookie.get("session").and_then(|v| v.as_bool()) == Some(true) {
+        return Ok(0);
+    }
+    match cookie
+        .get("expirationDate")
+        .or_else(|| cookie.get("expiry"))
+        .or_else(|| cookie.get("expires"))
+    {
+        None => Ok(0),
+        Some(v) => match v.as_f64() {
+            Some(n) if n.is_finite() => Ok(n.floor() as i64),
+            _ => Err(()),
+        },
+    }
+}
+
+/// Stable, content-free error code shared by the gate and the exporter.
+pub(crate) const INVALID_JSON_COOKIE_EXPORT: &str = "invalid-json-cookie-export";
+
+/// A JSON cookie export entry after minimal validation. Inspection and the
+/// Netscape exporter both build on this, so what the gate accepts is exactly
+/// what the exporter can safely serialize. Every serialized field is free of
+/// control characters and the required fields (`domain`, `name`, `value`) are
+/// present with the right types; a legal empty `value` is allowed.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct JsonCookie {
+    pub domain: String,
+    pub name: String,
+    pub value: String,
+    pub path: String,
+    pub secure: bool,
+    pub http_only: bool,
+    pub host_only: bool,
+    pub expiry: i64,
+}
+
+fn required_text<'a>(
+    cookie: &'a serde_json::Value,
+    key: &str,
+    allow_empty: bool,
+) -> Result<&'a str, &'static str> {
+    let value = cookie
+        .get(key)
+        .and_then(|v| v.as_str())
+        .ok_or(INVALID_JSON_COOKIE_EXPORT)?;
+    if !allow_empty && value.is_empty() {
+        return Err(INVALID_JSON_COOKIE_EXPORT);
+    }
+    if value.contains(['\0', '\r', '\n', '\t']) {
+        return Err(INVALID_JSON_COOKIE_EXPORT);
+    }
+    Ok(value)
+}
+
+/// Minimal validated parse of a JSON cookie export, shared by `inspect` and
+/// `DownloadService::convert_json_cookies_to_netscape`. A single bad entry
+/// rejects the whole export (fail closed); required fields are never defaulted
+/// and no field is silently skipped.
+pub(crate) fn parse_json_cookie_export(text: &str) -> Result<Vec<JsonCookie>, &'static str> {
+    let parsed: serde_json::Value =
+        serde_json::from_str(text).map_err(|_| INVALID_JSON_COOKIE_EXPORT)?;
+    let cookies = parsed.as_array().ok_or(INVALID_JSON_COOKIE_EXPORT)?;
+    if cookies.is_empty() {
+        return Err(INVALID_JSON_COOKIE_EXPORT);
+    }
+    let mut out = Vec::with_capacity(cookies.len());
+    for cookie in cookies {
+        let domain = required_text(cookie, "domain", false)?;
+        let name = required_text(cookie, "name", false)?;
+        let value = required_text(cookie, "value", true)?;
+        // `path` is optional (defaults to "/") but is still an output field.
+        let path = match cookie.get("path") {
+            Some(_) => required_text(cookie, "path", true)?,
+            None => "/",
+        };
+        let expiry = json_expiry(cookie).map_err(|_| INVALID_JSON_COOKIE_EXPORT)?;
+        out.push(JsonCookie {
+            domain: domain.to_string(),
+            name: name.to_string(),
+            value: value.to_string(),
+            path: path.to_string(),
+            secure: cookie
+                .get("secure")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false),
+            http_only: cookie
+                .get("httpOnly")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false),
+            host_only: json_host_only(domain, cookie),
+            expiry,
+        });
+    }
+    Ok(out)
+}
+
 pub fn inspect(text: &str, target: Option<&str>, now: i64) -> CookieInspection {
     let invalid = || CookieInspection {
         state: "invalid".into(),
@@ -20,62 +132,25 @@ pub fn inspect(text: &str, target: Option<&str>, now: i64) -> CookieInspection {
         return invalid();
     }
     let rows: Vec<(String, i64, bool)> = if text.trim_start().starts_with('[') {
-        let Ok(serde_json::Value::Array(values)) = serde_json::from_str(text) else {
+        let Ok(cookies) = parse_json_cookie_export(text) else {
             return invalid();
         };
-        let mut rows = Vec::new();
-        for value in values {
-            let Some(domain) = value
-                .get("domain")
-                .and_then(|v| v.as_str())
-                .filter(|d| !d.is_empty())
-            else {
-                return invalid();
-            };
-            let Some(name) = value
-                .get("name")
-                .and_then(|v| v.as_str())
-                .filter(|n| !n.is_empty())
-            else {
-                return invalid();
-            };
-            let Some(cookie_value) = value.get("value").and_then(|v| v.as_str()) else {
-                return invalid();
-            };
-            if [domain, name, cookie_value]
-                .iter()
-                .any(|v| v.contains(['\r', '\n', '\t']))
-            {
-                return invalid();
-            }
-            let expiry = if value.get("session").and_then(|v| v.as_bool()) == Some(true) {
-                0
-            } else {
-                let expiry = value
-                    .get("expirationDate")
-                    .or_else(|| value.get("expiry"))
-                    .or_else(|| value.get("expires"));
-                match expiry {
-                    None => 0,
-                    Some(v) => match v.as_f64() {
-                        Some(n) if n.is_finite() => n as i64,
-                        _ => return invalid(),
-                    },
-                }
-            };
-            rows.push((
-                domain.into(),
-                expiry,
-                value
-                    .get("hostOnly")
-                    .and_then(|v| v.as_bool())
-                    .unwrap_or(!domain.starts_with('.')),
-            ));
-        }
-        rows
+        cookies
+            .into_iter()
+            .map(|cookie| (cookie.domain, cookie.expiry, cookie.host_only))
+            .collect()
     } else {
         let mut rows = Vec::new();
-        for line in text.lines().map(str::trim).filter(|l| !l.is_empty()) {
+        // Never trim the whole data row: a structurally legal empty trailing
+        // value is a trailing TAB that `trim()` would erase. Only the
+        // blank/comment decision uses a trimmed view. A trailing CR is dropped
+        // so CRLF files keep their previous behavior without trimming spaces
+        // from the value itself.
+        for raw_line in text.lines() {
+            let line = raw_line.strip_suffix('\r').unwrap_or(raw_line).trim_start();
+            if line.is_empty() {
+                continue;
+            }
             if line.starts_with('#') && !line.starts_with("#HttpOnly_") {
                 continue;
             }
@@ -200,5 +275,107 @@ mod tests {
         ] {
             assert_eq!(inspect(text, None, 1000).state, "invalid");
         }
+    }
+
+    #[test]
+    fn json_missing_fields_and_control_characters_are_rejected() {
+        for text in [
+            r#"[{"hostOnly":false,"name":"SID","value":"x"}]"#,
+            r#"[{"domain":"youtube.com","value":"x"}]"#,
+            r#"[{"domain":"youtube.com","name":"SID"}]"#,
+            r#"[{"domain":"youtube.com","name":"SI\tD","value":"x"}]"#,
+            r#"[{"domain":"youtube.com","name":"SID","value":"x\ny"}]"#,
+            r#"[{"domain":"you\rtube.com","name":"SID","value":"x"}]"#,
+        ] {
+            assert_eq!(
+                inspect(text, Some("https://www.youtube.com/"), 2000).state,
+                "invalid",
+                "{text}"
+            );
+        }
+    }
+
+    #[test]
+    fn json_session_expiry_alias_and_boundary_semantics_are_honest() {
+        let alias = r#"[{"domain":".youtube.com","name":"SID","value":"x","expires":1999999999}]"#;
+        assert_eq!(
+            inspect(alias, Some("https://www.youtube.com/"), 2000).state,
+            "imported"
+        );
+        assert_eq!(
+            inspect(alias, Some("https://www.youtube.com/"), 3000000000).state,
+            "expired"
+        );
+
+        let session = r#"[{"domain":".youtube.com","name":"SID","value":"x","session":true,"expirationDate":100}]"#;
+        assert_eq!(
+            inspect(session, Some("https://www.youtube.com/"), 5000).state,
+            "imported",
+            "session cookies must not expire by date"
+        );
+
+        let boundary =
+            r#"[{"domain":".youtube.com","name":"SID","value":"x","expirationDate":5000}]"#;
+        assert_eq!(
+            inspect(boundary, Some("https://www.youtube.com/"), 5000).state,
+            "expired"
+        );
+        assert_eq!(
+            inspect(boundary, Some("https://www.youtube.com/"), 4999).state,
+            "imported"
+        );
+    }
+
+    #[test]
+    fn json_path_and_every_serialized_field_reject_control_characters() {
+        // R1: the exporter writes domain/name/value/path verbatim, so the gate
+        // must reject control characters in every serialized field. A TAB in
+        // `path` could otherwise inject a second Cookie row.
+        let injected = r#"[{"domain":".youtube.com","name":"TEST_ONLY","value":"SYNTHETIC","path":"/\tFALSE\t2147483647\tPREFIX\tSYNTHETIC\n.evil.test\tTRUE\t/"}]"#;
+        assert_eq!(
+            inspect(injected, Some("https://evil.test/"), 2000).state,
+            "invalid"
+        );
+        for text in [
+            r#"[{"domain":"you\rtube.com","name":"TEST_ONLY","value":"SYNTHETIC"}]"#,
+            r#"[{"domain":".youtube.com","name":"SI\tD","value":"SYNTHETIC"}]"#,
+            r#"[{"domain":".youtube.com","name":"TEST_ONLY","value":"x\u0000y"}]"#,
+            r#"[{"domain":".youtube.com","name":"TEST_ONLY","value":"SYNTHETIC","path":"a\nb"}]"#,
+            r#"[{"domain":".youtube.com","name":"TEST_ONLY","value":"SYNTHETIC","path":"a\u0000b"}]"#,
+        ] {
+            assert_eq!(
+                inspect(text, Some("https://www.youtube.com/"), 2000).state,
+                "invalid",
+                "{text}"
+            );
+        }
+    }
+
+    #[test]
+    fn json_required_field_types_are_enforced_without_defaulting() {
+        for text in [
+            r#"[{"name":"TEST_ONLY","value":"SYNTHETIC"}]"#,
+            r#"[{"domain":123,"name":"TEST_ONLY","value":"SYNTHETIC"}]"#,
+            r#"[{"domain":"","name":"TEST_ONLY","value":"SYNTHETIC"}]"#,
+            r#"[{"domain":".youtube.com","name":"","value":"SYNTHETIC"}]"#,
+            r#"[{"domain":".youtube.com","name":"TEST_ONLY"}]"#,
+            r#"[{"domain":".youtube.com","name":"TEST_ONLY","value":false}]"#,
+        ] {
+            assert_eq!(
+                inspect(text, Some("https://www.youtube.com/"), 2000).state,
+                "invalid",
+                "{text}"
+            );
+        }
+        // A legal empty value stays accepted (R4 owns its round-trip).
+        assert_eq!(
+            inspect(
+                r#"[{"domain":".youtube.com","name":"TEST_ONLY","value":""}]"#,
+                Some("https://www.youtube.com/"),
+                2000
+            )
+            .state,
+            "imported"
+        );
     }
 }

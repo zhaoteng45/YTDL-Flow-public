@@ -9,6 +9,9 @@ import {
   classifyTaskFailure,
   getAudioBadgeText,
   getCaptureFailureText,
+  getCredentialFailureKeys,
+  getCredentialReasonKey,
+  getCredentialSourceKey,
   getDownloadListStatusText,
   getPrimaryTaskAction,
   getRowOverflowActions,
@@ -502,6 +505,10 @@ const handleImageError = (rowId: string) => {
 
 const getErrorState = (errorMsg?: string) => {
   const recovery = getDownloadRecovery(errorMsg);
+  if (recovery?.kind === 'cookieFile') return {
+    title: t('download_list.recovery.authentication'),
+    hint: t('download_list.recovery.decision'),
+  };
   if (recovery && recovery.kind !== 'unknown') return { title: t(recovery.messageKey), hint: '' };
   return parseDownloadErrorMessage(errorMsg, {
     youtubeMessages: {
@@ -554,6 +561,13 @@ const getStatusIconName = (status: TaskPresentationRow['status']) => {
 };
 
 const getStatusText = (task: TaskPresentationRow) => getDownloadListStatusText(task.status, t, task.failureKind, task.errorMsg);
+
+const getCredentialReasonText = (credential: TaskPresentationRow['credential']) => {
+  const reasonKey = getCredentialReasonKey(credential);
+  if (!reasonKey) return '';
+  const parts = [t(reasonKey), ...getCredentialFailureKeys(credential).map((key) => t(key))];
+  return parts.join(' · ');
+};
 
 const getProgressColor = (status: TaskPresentationRow['status']) => {
   switch (status) {
@@ -707,29 +721,39 @@ const getProgressColor = (status: TaskPresentationRow['status']) => {
               </div>
 
               <!-- Core media identity and compact secondary metadata. -->
-              <div v-if="item.metadata" class="metadata-row primary-metadata-row">
-                <span v-if="item.metadata.channel" class="metadata-chip" :title="t('download_list.meta.channel')">
-                  <NeoIcon name="user" :size="12" class="brick-icon" /> <span class="brick-value">{{ item.metadata.channel }}</span>
-                </span>
-                <span v-if="item.metadata.duration" class="metadata-chip" :title="t('download_list.meta.duration')">
-                  <NeoIcon name="time" :size="12" class="brick-icon" /> <span class="brick-value">{{ item.metadata.duration }}</span>
-                </span>
+              <div v-if="item.metadata || getCredentialSourceKey(item.credential)" class="metadata-row primary-metadata-row">
+                <template v-if="item.metadata">
+                  <span v-if="item.metadata.channel" class="metadata-chip" :title="t('download_list.meta.channel')">
+                    <NeoIcon name="user" :size="12" class="brick-icon" /> <span class="brick-value">{{ item.metadata.channel }}</span>
+                  </span>
+                  <span v-if="item.metadata.duration" class="metadata-chip" :title="t('download_list.meta.duration')">
+                    <NeoIcon name="time" :size="12" class="brick-icon" /> <span class="brick-value">{{ item.metadata.duration }}</span>
+                  </span>
+                  <span
+                    v-if="isAudioFormat(getRowFormat(item))"
+                    class="metadata-chip audio-mode"
+                    :title="t('download_list.meta.audio_mode_hint')"
+                  >
+                    <NeoIcon name="music" :size="12" class="brick-icon" /> <span class="brick-value">{{ getAudioBadgeText(getRowFormat(item)) || t('download_list.meta.audio_mode') }}</span>
+                  </span>
+                  <span
+                    v-else-if="item.metadata.resolution"
+                    class="metadata-chip resolution"
+                    :title="t('download_list.meta.resolution')"
+                  >
+                    <NeoIcon name="tv" :size="12" class="brick-icon" /> <span class="brick-value">{{ t('download_list.meta.video_mode') }} · {{ item.metadata.resolution }}</span>
+                  </span>
+                  <span v-if="item.metadata.filesize" class="metadata-chip filesize" :title="t('download_list.meta.filesize')">
+                    <NeoIcon name="disk" :size="12" class="brick-icon" /> <span class="brick-value">{{ item.metadata.filesize }}</span>
+                  </span>
+                </template>
                 <span
-                  v-if="isAudioFormat(getRowFormat(item))"
-                  class="metadata-chip audio-mode"
-                  :title="t('download_list.meta.audio_mode_hint')"
+                  v-if="getCredentialSourceKey(item.credential)"
+                  class="metadata-chip credential-source"
+                  data-credential-source
+                  :title="t('download_list.credential_source.label')"
                 >
-                  <NeoIcon name="music" :size="12" class="brick-icon" /> <span class="brick-value">{{ getAudioBadgeText(getRowFormat(item)) || t('download_list.meta.audio_mode') }}</span>
-                </span>
-                <span
-                  v-else-if="item.metadata.resolution"
-                  class="metadata-chip resolution"
-                  :title="t('download_list.meta.resolution')"
-                >
-                  <NeoIcon name="tv" :size="12" class="brick-icon" /> <span class="brick-value">{{ t('download_list.meta.video_mode') }} · {{ item.metadata.resolution }}</span>
-                </span>
-                <span v-if="item.metadata.filesize" class="metadata-chip filesize" :title="t('download_list.meta.filesize')">
-                  <NeoIcon name="disk" :size="12" class="brick-icon" /> <span class="brick-value">{{ item.metadata.filesize }}</span>
+                  <NeoIcon name="cookie" :size="12" class="brick-icon" /> <span class="brick-value">{{ t(getCredentialSourceKey(item.credential)!) }}</span>
                 </span>
               </div>
 
@@ -971,10 +995,14 @@ const getProgressColor = (status: TaskPresentationRow['status']) => {
                   <label>{{ t('download_list.task_options.end') }}<input v-model="optionsFor(item.rowId).end" type="text" inputmode="decimal" :placeholder="t('download_list.task_options.full_end')" /></label>
                 </div>
                 <p>{{ t('download_list.task_options.hint') }}</p>
+                <p v-if="getCredentialSourceKey(item.credential)" class="task-credential-summary" data-detail-credential-source>{{ t('download_list.credential_source.label') }}: {{ t(getCredentialSourceKey(item.credential)!) }}</p>
+                <p v-if="getCredentialReasonKey(item.credential)" class="task-credential-reason" data-detail-credential-reason>{{ t('download_list.credential_reason.label') }}: {{ getCredentialReasonText(item.credential) }}</p>
               </section>
 
             </div>
             <div v-else>                <dl class="attempt-diagnostics">
+                  <template v-if="getCredentialSourceKey(item.credential)"><dt>{{ t('download_list.credential_source.label') }}</dt><dd data-detail-credential-source>{{ t(getCredentialSourceKey(item.credential)!) }}</dd></template>
+                  <template v-if="getCredentialReasonKey(item.credential)"><dt>{{ t('download_list.credential_reason.label') }}</dt><dd data-detail-credential-reason>{{ getCredentialReasonText(item.credential) }}</dd></template>
                   <template v-for="(value, key) in getAttemptDiagnostics(item)" :key="key"><dt>{{ t(`download_list.diagnostics.${key}`) }}</dt><dd>{{ key === 'phase' ? getStatusText(item) : value === 'unknown' || value === null ? t('download_list.diagnostics.unknown') : key === 'authMode' ? t(`download_list.details.${value}`) : value }}</dd></template>
                 </dl></div>
           </section>

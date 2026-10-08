@@ -86,6 +86,7 @@ function row(
     path?: string;
     title?: string;
     metadata?: TaskPresentationRow['metadata'];
+    credential?: TaskPresentationRow['credential'];
     cancelRequested?: boolean;
     hasExecution?: boolean;
     hasDownloadIntent?: boolean;
@@ -113,6 +114,7 @@ function row(
     cancelRequested: options.cancelRequested === true,
     actions,
     ...(options.metadata ? { metadata: options.metadata } : {}),
+    ...(options.credential ? { credential: options.credential } : {}),
     ...(options.path ? { path: options.path } : {}),
     ...(failureKind ? { failureKind } : {}),
     ...(status === 'error' ? { errorMsg: `${key} failed for QA` } : {}),
@@ -142,18 +144,24 @@ const scenarios: Scenario[] = [
   },
   {
     key: 'analyzed-video',
-    row: row('analyzed-video', 'analyzed', { metadata: {
-      ...baseMetadata,
-      observedMaxHeight: 1080,
-      requestedResolution: '2160p',
-      youtubeDiagnostic: { cookieState: 'stale', runtimeState: 'succeeded', potState: 'generated' },
-      clientCapabilities: [{ playerClient: 'mweb', observedMaxHeight: 1080, formats: [], diagnostic: { cookieState: 'stale', runtimeState: 'succeeded', potState: 'generated' } }],
-    } }),
+    row: row('analyzed-video', 'analyzed', {
+      credential: { source: 'browser', reason: 'browser-ok' },
+      metadata: {
+        ...baseMetadata,
+        observedMaxHeight: 1080,
+        requestedResolution: '2160p',
+        youtubeDiagnostic: { cookieState: 'stale', runtimeState: 'succeeded', potState: 'generated' },
+        clientCapabilities: [{ playerClient: 'mweb', observedMaxHeight: 1080, formats: [], diagnostic: { cookieState: 'stale', runtimeState: 'succeeded', potState: 'generated' } }],
+      },
+    }),
     expectedOverflowItems: 0,
   },
   {
     key: 'queued',
-    row: row('queued', 'queued', { metadata: baseMetadata }),
+    row: row('queued', 'queued', {
+      metadata: baseMetadata,
+      credential: { source: 'file', reason: 'file-ok' },
+    }),
     expectedOverflowItems: 0,
   },
   {
@@ -163,7 +171,11 @@ const scenarios: Scenario[] = [
   },
   {
     key: 'downloading',
-    row: row('downloading', 'downloading', { metadata: baseMetadata, progress: 43 }),
+    row: row('downloading', 'downloading', {
+      metadata: baseMetadata,
+      progress: 43,
+      credential: { source: 'file', reason: 'backup-file', browserFailure: 'locked' },
+    }),
     expectedOverflowItems: 0,
   },
   {
@@ -177,6 +189,7 @@ const scenarios: Scenario[] = [
       metadata: baseMetadata,
       progress: 100,
       path: 'C:/Downloads/mountain-walk.mp4',
+      credential: { source: 'anonymous', reason: 'backup-unavailable' },
     }),
     expectedOverflowItems: 2,
   },
@@ -329,6 +342,13 @@ async function validate(
 
   const analyzing = host.querySelector<HTMLElement>('[data-row-id="analyzing"]');
   if (check(locale, theme, width, Boolean(analyzing), `${label}: analyzing row exists`) && analyzing) {
+    check(
+      locale,
+      theme,
+      width,
+      !analyzing.querySelector('[data-credential-source]'),
+      `${label}: analyzing row does not fabricate credential source`,
+    );
     const actualBorder = getComputedStyle(analyzing).borderTopColor;
     const semanticBorders = [
       resolveToken('--color-primary'),
@@ -352,6 +372,32 @@ async function validate(
       width,
       !zeroOverflow.querySelector('.row-overflow-wrap'),
       `${label}: zero-action row has no overflow trigger`,
+    );
+  }
+
+  const expectedCredentialCopy: ReadonlyArray< readonly [string, string] > =
+    locale === 'zh-CN'
+      ? [
+          ['analyzed-video', '浏览器'],
+          ['queued', 'Cookies 文件'],
+          ['downloading', '备用 Cookies 文件'],
+          ['completed', '匿名'],
+        ]
+      : [
+          ['analyzed-video', 'Browser'],
+          ['queued', 'Cookies file'],
+          ['downloading', 'Backup Cookies file'],
+          ['completed', 'Anonymous'],
+        ];
+  for (const [rowKey, expectedText] of expectedCredentialCopy) {
+    const card = host.querySelector<HTMLElement>(`[data-row-id="${rowKey}"]`);
+    const chip = card?.querySelector<HTMLElement>('[data-credential-source]');
+    check(
+      locale,
+      theme,
+      width,
+      chip?.textContent?.trim() === expectedText,
+      `${label}: ${rowKey} card shows credential source ${expectedText}`,
     );
   }
 
@@ -393,6 +439,40 @@ async function validate(
   check(locale, theme, width, Boolean(audio?.querySelector('.audio-artwork')), `${label}: audio artwork`);
 
   if (video) {
+    const detailToggle = video.querySelector<HTMLButtonElement>('[data-task-detail-toggle]');
+    check(
+      locale,
+      theme,
+      width,
+      detailToggle?.getAttribute('aria-expanded') === 'false' && !video.querySelector('.task-details-panel'),
+      `${label}: task details collapsed by default`,
+    );
+    detailToggle?.click();
+    await settle();
+    const detailsPanel = video.querySelector<HTMLElement>('.task-details-panel');
+    const expectedBrowserLabel = locale === 'zh-CN' ? '浏览器' : 'Browser';
+    check(
+      locale,
+      theme,
+      width,
+      Boolean(detailsPanel) &&
+        insideHost(detailsPanel!) &&
+        detailsPanel!.scrollWidth <= detailsPanel!.clientWidth + 1 &&
+        Boolean(detailsPanel!.querySelector('[data-detail-credential-source]')?.textContent?.includes(expectedBrowserLabel)),
+      `${label}: expanded task details options view shows credential source without overflow`,
+    );
+    detailsPanel?.querySelector<HTMLButtonElement>('[data-detail-view="diagnostics"]')?.click();
+    await settle();
+    check(
+      locale,
+      theme,
+      width,
+      detailsPanel?.querySelector('[data-detail-credential-source]')?.textContent?.trim() === expectedBrowserLabel,
+      `${label}: expanded task details diagnostics view shows credential source`,
+    );
+    detailToggle?.click();
+    await settle();
+
     const logToggle = video.querySelector<HTMLButtonElement>('.logs-toggle-btn');
     check(locale, theme, width, Boolean(logToggle), `${label}: direct log toggle exists`);
     if (logToggle) {

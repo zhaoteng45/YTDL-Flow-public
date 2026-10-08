@@ -6,6 +6,7 @@ import type {
   CurrentDownloadCommand,
   CurrentDownloadFormat,
   CurrentExtraArgs,
+  CurrentCredentialSelection,
   CurrentTaskRow,
   TaskPayload,
 } from '../../contracts/src';
@@ -63,6 +64,7 @@ interface AnalysisCatalogRow {
   status: 'analyzing' | 'analyzed' | 'error';
   orderKey: number;
   metadata?: CurrentAnalysisMedia;
+  credential?: CurrentCredentialSelection;
   failureKind?: 'analysis' | 'cancelled';
   failureReason?: string;
   logFailureHint?: string;
@@ -220,6 +222,7 @@ export class CurrentTaskService {
     row.attemptId = handle.attemptId;
     row.status = 'analyzing';
     row.metadata = undefined;
+    row.credential = undefined;
     row.failureKind = undefined;
     row.failureReason = undefined;
     row.logFailureHint = undefined;
@@ -453,6 +456,7 @@ export class CurrentTaskService {
       return;
     }
 
+    row.credential = outcome.credential ? { ...outcome.credential } : undefined;
     if (outcome.status === 'analyzed') {
       row.status = 'analyzed';
       row.captureFailureCode = undefined;
@@ -467,6 +471,14 @@ export class CurrentTaskService {
           ...(decision.authMode === 'anonymous' ? { cookies: '' } : {}),
           ...(decision.clearSessionInputs ? { poToken: '', visitorData: '' } : {}),
         };
+        if (decision.authMode === 'anonymous' && row.credential?.source !== 'anonymous') {
+          row.credential = {
+            source: 'anonymous',
+            reason: 'smart-anonymous',
+            ...(row.credential?.browserFailure ? { browserFailure: row.credential.browserFailure } : {}),
+            ...(row.credential?.fileFailure ? { fileFailure: row.credential.fileFailure } : {}),
+          };
+        }
       }
       row.failureKind = undefined;
       row.failureReason = undefined;
@@ -529,6 +541,7 @@ export class CurrentTaskService {
         orderKey: row.orderKey,
         ...(row.logFailureHint ? { failureReason: row.logFailureHint } : {}),
         ...(metadata ? { metadata } : {}),
+        ...(row.credential ? { credential: { ...row.credential } } : {}),
         ...(row.capture ? { capture: { ...row.capture } } : {}),
         selectedFormat: row.selectedFormat,
         ...(row.taskOverrideArgs ? { taskOverrideArgs: { ...row.taskOverrideArgs } } : {}),
@@ -543,6 +556,7 @@ export class CurrentTaskService {
       status: row.status,
       orderKey: row.orderKey,
       ...(metadata ? { metadata } : {}),
+      ...(row.credential ? { credential: { ...row.credential } } : {}),
       ...(row.capture ? { capture: { ...row.capture } } : {}),
       ...(row.failureKind ? { failureKind: row.failureKind } : {}),
       ...(row.captureFailureCode ? { failureCode: row.captureFailureCode } : {}),

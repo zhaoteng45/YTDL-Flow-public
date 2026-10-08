@@ -117,6 +117,141 @@ async function run() {
       }
       check('keeps Bilibili credentials separate', store.platformCookies.bilibili === 'bilibili-fixture', name);
     }
+
+    {
+      const name = `${locale}/${theme}/single-source-and-safe-errors`;
+      caseCount++;
+      app?.unmount();
+      localStorage.clear();
+      const pinia = createPinia();
+      const store = useAppStore(pinia);
+      store.setPlatformCookie('youtube', 'edge');
+      store.setPlatformCookie('bilibili', 'bilibili-fixture');
+
+      let nextPickedPath: string | null = 'C:/fixtures/preferred-file.txt';
+      let nextInspectState: 'imported' | 'invalid' | 'expired' | 'mismatch' | 'unreadable' = 'imported';
+      let shouldThrowPicker = false;
+      Object.assign(store, {
+        getNotificationPermission: async () => true,
+        getNotificationSettings: async () => ({ enabled: false, onSuccess: true, onError: true, onCancel: false }),
+        getInstalledBrowsers: async () => ['firefox', 'edge'],
+        getBinariesInfo: async () => ({ bun: '1.4.2', ytdlp: '2026.08.19', ffmpeg: '9.0.2' }),
+        inspectToolHealth: async () => ({ state: 'ready', zombieCount: 0 }),
+        chooseCookieFile: async () => {
+          if (shouldThrowPicker) {
+            throw new Error('SYNTHETIC_NATIVE_ERROR C:/Users/private-account/cookies.txt SAPISID=SECRET');
+          }
+          return nextPickedPath;
+        },
+        inspectCookieFile: async () => ({
+          state: nextInspectState,
+          total: 1,
+          matching: 1,
+          fresh: 1,
+        }),
+        openExternalUrl: async () => {
+          throw new Error('SYNTHETIC_LOGIN_ERROR C:/Users/private-account/login');
+        },
+      });
+
+      const i18n = createI18n({ legacy: false, locale, messages: { 'zh-CN': zh, 'en-US': en } });
+      const t = (key: string) => i18n.global.t(key);
+      app = createApp({
+        render: () =>
+          h('section', { style: 'height:800px;container:settings-frame / inline-size;' }, [h(SettingsPanel)]),
+      });
+      app.use(pinia).use(i18n).mount(host);
+      await settle();
+
+      host.querySelector<HTMLButtonElement>('[data-settings-tab="general"]')?.click();
+      await settle();
+      const manageBtn = host.querySelector<HTMLButtonElement>('[data-youtube-manage]');
+      check('exposes YouTube manage button when connected', manageBtn, name);
+      manageBtn?.focus();
+      manageBtn?.click();
+      await settle();
+
+      const modal = host.querySelector<HTMLElement>('.auth-modal');
+      check('opens YouTube management modal', modal, name);
+      if (modal) {
+        const authBody = modal.querySelector<HTMLElement>('.auth-body');
+        const footer = modal.querySelector<HTMLElement>('.modal-footer');
+        const dialogRect = modal.getBoundingClientRect();
+        const footerRect = footer?.getBoundingClientRect();
+        check(
+          'modal body is scrollable and footer remains reachable inside dialog',
+          authBody &&
+            getComputedStyle(authBody).overflowY === 'auto' &&
+            footerRect &&
+            footerRect.bottom <= dialogRect.bottom + 1 &&
+            dialogRect.bottom <= innerHeight + 1,
+          name,
+        );
+
+        const buttons = Array.from(modal.querySelectorAll<HTMLButtonElement>('button:not([disabled])'));
+        check(
+          'all active buttons in auth modal meet 44px minimum touch target height',
+          buttons.length > 0 && buttons.every((btn) => btn.offsetHeight >= 44),
+          name,
+        );
+
+        check('offers no backup picker or authorization',
+          !modal.querySelector('[data-select-backup-cookie]') &&
+          !modal.querySelector('[data-authorize-backup-cookie]'), name);
+        button(t('settings.youtube_auth.file_tab'), modal)?.click();
+        await settle();
+        nextPickedPath = null;
+        button(t('settings.cookies_pick_file'), modal)?.click();
+        await settle();
+        check('cancelled preferred file selection preserves selected browser',
+          store.getEffectivePlatformSource('youtube').kind === 'browser', name);
+        nextPickedPath = 'C:/fixtures/expired.txt';
+        nextInspectState = 'expired';
+        button(t('settings.cookies_pick_file'), modal)?.click();
+        await settle();
+        check('expired preferred file keeps previous source and displays safe reason',
+          store.getEffectivePlatformSource('youtube').kind === 'browser' &&
+          modal.textContent?.includes(t('input.cookie_state.expired')), name);
+        shouldThrowPicker = true;
+        button(t('settings.cookies_pick_file'), modal)?.click();
+        await settle();
+        check('native picker failure uses safe localized message',
+          modal.textContent?.includes(t('settings.youtube_auth.file_select_failed')) &&
+          !modal.textContent?.includes('SYNTHETIC_NATIVE_ERROR') &&
+          !modal.textContent?.includes('private-account'), name);
+        button(t('settings.youtube_auth.browser_tab'), modal)?.click();
+        await settle();
+
+        button(t('settings.youtube_auth.open_login'), modal)?.click();
+        await settle();
+        check(
+          'external login open failure uses safe localized message without leaking native error',
+          modal.textContent?.includes(t('settings.youtube_auth.login_open_failed')) &&
+            !modal.textContent?.includes('SYNTHETIC_LOGIN_ERROR') &&
+            !modal.textContent?.includes('private-account'),
+          name,
+        );
+
+        const focusables = Array.from(
+          modal.querySelectorAll<HTMLElement>(
+            'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+          ),
+        ).filter((el) => el.offsetParent !== null);
+        const firstFocusable = focusables[0];
+        const lastFocusable = focusables[focusables.length - 1];
+        lastFocusable?.focus();
+        modal.parentElement?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }));
+        check('Tab traps focus from last to first element inside modal', document.activeElement === firstFocusable, name);
+
+        modal.parentElement?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+        await settle();
+        check(
+          'Escape closes modal and restores focus to trigger',
+          !host.querySelector('.auth-modal') && document.activeElement === manageBtn,
+          name,
+        );
+      }
+    }
   }
 }
 void run().catch(error => { checks++; failures.push({ case: 'harness', check: String(error) }); }).finally(() => {

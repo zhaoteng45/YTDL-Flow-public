@@ -15,6 +15,9 @@ import {
   getTaskActions,
   classifyTaskFailure,
   getAudioBadgeText,
+  getCredentialFailureKeys,
+  getCredentialReasonKey,
+  getCredentialSourceKey,
   getPrimaryTaskAction,
   getRowOverflowActions,
   isAudioFormat,
@@ -44,6 +47,141 @@ function makeRow(overrides: Partial<CurrentTaskRow> = {}): TaskPresentationRow {
   };
   return toCurrentTaskPresentationRow(row);
 }
+
+describe('actual credential source label', () => {
+  it('distinguishes browser, preferred file, authorized backup and anonymous without exposing a path', () => {
+    expect(getCredentialSourceKey({ source: 'browser', reason: 'browser-ok' })).toBe('download_list.credential_source.browser');
+    expect(getCredentialSourceKey({ source: 'file', reason: 'file-ok' })).toBe('download_list.credential_source.file');
+    expect(getCredentialSourceKey({ source: 'file', reason: 'backup-file', browserFailure: 'locked' })).toBe('download_list.credential_source.backup');
+    expect(getCredentialSourceKey({ source: 'anonymous', reason: 'backup-unavailable' })).toBe('download_list.credential_source.anonymous');
+    expect(getCredentialSourceKey({ source: 'anonymous', reason: 'smart-anonymous', browserFailure: 'locked' })).toBe('download_list.credential_source.anonymous');
+    expect(getCredentialSourceKey({ source: 'anonymous', reason: 'backup-file' as unknown as 'smart-anonymous' })).toBeUndefined();
+    expect(getCredentialSourceKey({ source: 'browser', reason: 'C:/Users/alice/cookies.txt' as unknown as 'browser-ok' })).toBeUndefined();
+    expect(getCredentialSourceKey(undefined)).toBeUndefined();
+  });
+
+  it('defines matching zh-CN and en-US i18n copy for credential source labels', () => {
+    const zh = JSON.parse(readFileSync(resolve('src/locales/zh-CN.json'), 'utf8')) as {
+      download_list?: { credential_source?: Record<string, string> };
+    };
+    const en = JSON.parse(readFileSync(resolve('src/locales/en-US.json'), 'utf8')) as {
+      download_list?: { credential_source?: Record<string, string> };
+    };
+
+    expect(zh.download_list?.credential_source).toEqual({
+      label: '实际凭证来源',
+      browser: '浏览器',
+      file: 'Cookies 文件',
+      backup: '备用 Cookies 文件',
+      anonymous: '匿名',
+    });
+    expect(en.download_list?.credential_source).toEqual({
+      label: 'Actual credential source',
+      browser: 'Browser',
+      file: 'Cookies file',
+      backup: 'Backup Cookies file',
+      anonymous: 'Anonymous',
+    });
+  });
+
+  it('maps frozen credential reasons and browser/file failure enums to safe i18n keys while rejecting unknown inputs', () => {
+    expect(getCredentialReasonKey({ source: 'browser', reason: 'browser-ok' })).toBe(
+      'download_list.credential_reason.browser-ok',
+    );
+    expect(getCredentialReasonKey({ source: 'file', reason: 'file-ok' })).toBe(
+      'download_list.credential_reason.file-ok',
+    );
+    expect(
+      getCredentialReasonKey({ source: 'file', reason: 'backup-file', browserFailure: 'locked' }),
+    ).toBe('download_list.credential_reason.backup-file');
+    expect(
+      getCredentialReasonKey({ source: 'anonymous', reason: 'unconfigured' }),
+    ).toBe('download_list.credential_reason.unconfigured');
+    expect(
+      getCredentialReasonKey({
+        source: 'anonymous',
+        reason: 'backup-not-authorized',
+        browserFailure: 'decrypt_failed',
+      }),
+    ).toBe('download_list.credential_reason.backup-not-authorized');
+    expect(
+      getCredentialReasonKey({
+        source: 'anonymous',
+        reason: 'backup-unavailable',
+        browserFailure: 'permission_denied',
+        fileFailure: 'expired',
+      }),
+    ).toBe('download_list.credential_reason.backup-unavailable');
+    expect(
+      getCredentialReasonKey({
+        source: 'anonymous',
+        reason: 'preferred-file-unavailable',
+        fileFailure: 'mismatch',
+      }),
+    ).toBe('download_list.credential_reason.preferred-file-unavailable');
+    expect(
+      getCredentialReasonKey({
+        source: 'anonymous',
+        reason: 'smart-anonymous',
+        browserFailure: 'locked',
+      }),
+    ).toBe('download_list.credential_reason.smart-anonymous');
+
+    expect(
+      getCredentialFailureKeys({
+        source: 'anonymous',
+        reason: 'backup-unavailable',
+        browserFailure: 'decrypt_failed',
+        fileFailure: 'expired',
+      }),
+    ).toEqual(['settings.browser.decrypt_failed', 'input.cookie_state.expired']);
+
+    expect(
+      getCredentialReasonKey({
+        source: 'anonymous',
+        reason: 'C:/Users/private/cookies.txt' as unknown as 'unconfigured',
+      }),
+    ).toBeUndefined();
+    expect(
+      getCredentialFailureKeys({
+        source: 'anonymous',
+        reason: 'backup-unavailable',
+        browserFailure: 'C:/Users/private/Login Data' as unknown as 'locked',
+        fileFailure: 'Error: EACCES C:/Users/private/cookies.txt' as unknown as 'unreadable',
+      }),
+    ).toEqual([]);
+    expect(getCredentialReasonKey(undefined)).toBeUndefined();
+    expect(getCredentialFailureKeys(undefined)).toEqual([]);
+  });
+
+  it('defines matching zh-CN and en-US i18n copy for frozen credential reasons', () => {
+    const zh = JSON.parse(readFileSync(resolve('src/locales/zh-CN.json'), 'utf8')) as {
+      download_list?: { credential_reason?: Record<string, string> };
+    };
+    const en = JSON.parse(readFileSync(resolve('src/locales/en-US.json'), 'utf8')) as {
+      download_list?: { credential_reason?: Record<string, string> };
+    };
+
+    const expectedKeys = [
+      'label',
+      'browser-ok',
+      'browser-unavailable',
+      'file-ok',
+      'backup-file',
+      'unconfigured',
+      'backup-not-authorized',
+      'backup-unavailable',
+      'preferred-file-unavailable',
+      'smart-anonymous',
+    ];
+    expect(Object.keys(zh.download_list?.credential_reason ?? {}).sort()).toEqual(
+      [...expectedKeys].sort(),
+    );
+    expect(Object.keys(en.download_list?.credential_reason ?? {}).sort()).toEqual(
+      [...expectedKeys].sort(),
+    );
+  });
+});
 
 describe('getDownloadListStatusText', () => {
   it.each([

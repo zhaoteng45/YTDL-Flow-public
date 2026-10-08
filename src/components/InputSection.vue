@@ -327,7 +327,7 @@ defineExpose({
           </button>
           <button v-if="platform === 'youtube'" class="neo-button small" data-connection-entry="youtube-file"
             @click="emit('connect', 'youtube-file')">{{ t('input.platform_connection.file') }}</button>
-          <button v-if="store.getPlatformCredentialConfig(platform)?.preferred.ref" class="input-utility-button icon-btn"
+          <button v-if="store.getPlatformCredentialConfig(platform)?.preferred.ref || store.getPlatformCredentialConfig(platform)?.backup?.path" class="input-utility-button icon-btn"
             :aria-label="t('input.platform_connection.disconnect', { platform: platform === 'youtube' ? 'YouTube' : '哔哩哔哩' })"
             @click="disconnectPlatform(platform)"><NeoIcon name="cross" :size="16" /></button>
         </div>

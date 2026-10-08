@@ -1,4 +1,4 @@
-import type { CurrentFailureKind, CurrentTaskActions } from '../../packages/contracts/src';
+import type { CurrentCredentialSelection, CurrentFailureKind, CurrentTaskActions } from '../../packages/contracts/src';
 import type { TaskPresentationRow, TaskPresentationStatus } from '../application/taskPresentation';
 import type { DownloadFormat } from '../types';
 import { captureFailureMessageKey } from './capturePanel.helpers';
@@ -12,6 +12,71 @@ export const classifyTaskFailure = (
 ): CurrentFailureKind | undefined => task.failureKind;
 
 export const getTaskActions = (task: TaskPresentationRow): CurrentTaskActions => task.actions;
+
+const ANONYMOUS_CREDENTIAL_REASONS: ReadonlySet<CurrentCredentialSelection['reason']> = new Set([
+  'unconfigured',
+  'browser-unavailable',
+  'backup-not-authorized',
+  'backup-unavailable',
+  'preferred-file-unavailable',
+  'smart-anonymous',
+]);
+
+const CREDENTIAL_BROWSER_FAILURE_KEYS: ReadonlySet<
+  NonNullable<CurrentCredentialSelection['browserFailure']>
+> = new Set([
+  'invalid_browser',
+  'locked',
+  'permission_denied',
+  'not_found',
+  'decrypt_failed',
+  'execution_failed',
+]);
+
+const CREDENTIAL_FILE_FAILURE_KEYS: ReadonlySet<
+  NonNullable<CurrentCredentialSelection['fileFailure']>
+> = new Set(['invalid', 'expired', 'mismatch', 'unreadable']);
+
+/** Safe i18n lookup; source/reason are frozen enums, never credential values. */
+export function getCredentialSourceKey(
+  credential?: Readonly<CurrentCredentialSelection>,
+): string | undefined {
+  if (!credential) return undefined;
+  if (credential.source === 'browser' && credential.reason === 'browser-ok') {
+    return 'download_list.credential_source.browser';
+  }
+  if (credential.source === 'anonymous' && ANONYMOUS_CREDENTIAL_REASONS.has(credential.reason)) {
+    return 'download_list.credential_source.anonymous';
+  }
+  if (credential.source === 'file') {
+    if (credential.reason === 'backup-file') return 'download_list.credential_source.backup';
+    if (credential.reason === 'file-ok') return 'download_list.credential_source.file';
+  }
+  return undefined;
+}
+
+/** Safe i18n lookup for the frozen credential reason; rejects unknown or mismatched enums. */
+export function getCredentialReasonKey(
+  credential?: Readonly<CurrentCredentialSelection>,
+): string | undefined {
+  if (!credential || !getCredentialSourceKey(credential)) return undefined;
+  return `download_list.credential_reason.${credential.reason}`;
+}
+
+/** Safe i18n lookup for optional browser/file failure enums attached to a valid credential. */
+export function getCredentialFailureKeys(
+  credential?: Readonly<CurrentCredentialSelection>,
+): readonly string[] {
+  if (!credential || !getCredentialSourceKey(credential)) return [];
+  const keys: string[] = [];
+  if (credential.browserFailure && CREDENTIAL_BROWSER_FAILURE_KEYS.has(credential.browserFailure)) {
+    keys.push(`settings.browser.${credential.browserFailure}`);
+  }
+  if (credential.fileFailure && CREDENTIAL_FILE_FAILURE_KEYS.has(credential.fileFailure)) {
+    keys.push(`input.cookie_state.${credential.fileFailure}`);
+  }
+  return keys;
+}
 
 export type PrimaryTaskAction =
   | 'download'

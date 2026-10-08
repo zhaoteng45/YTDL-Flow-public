@@ -1,6 +1,7 @@
 import type {
   CurrentExtraArgs,
   CurrentTaskRow,
+  DownloadStartRequest,
 } from '../../packages/contracts/src';
 import { DownloadQueue } from '../../packages/domain/src';
 import {
@@ -13,6 +14,7 @@ import {
   CurrentTaskService,
   type DownloadEngine,
   DownloadService,
+  DownloadStartError,
   type DownloadServiceOptions,
   TaskQueryService,
 } from '../../packages/application/src';
@@ -24,9 +26,13 @@ import {
   createCurrentTaskPresentationActions,
   type TaskPresentationActions,
 } from '../application/taskPresentationActions';
+import type { PrepareCurrentAnalysis } from '../../packages/application/src/current-analysis-service';
 
 export interface CurrentTaskRuntimeEnvironment {
   getGlobalExtraArgs(sourceUrl?: string): CurrentExtraArgs;
+  getAnalysisExtraArgs?: PrepareCurrentAnalysis;
+  /** Executed for each actual engine dispatch, including queued starts and retries. */
+  validateDownloadCredential?: (request: DownloadStartRequest) => Promise<void>;
   getDownloadDir(): string | undefined;
 }
 
@@ -53,11 +59,66 @@ export interface CurrentTaskRuntime {
   dispose(): Promise<void>;
 }
 
+/**
+ * Runs async credential preflight immediately before the native engine receives
+ * a queued attempt. DownloadService remains the only FIFO/terminal state owner.
+ */
+function withCredentialPreflight(
+  engine: DownloadEngine,
+  verify: (request: DownloadStartRequest) => Promise<void>,
+): DownloadEngine {
+  const pending = new Map<string, { cancelled: boolean }>();
+  let disposed = false;
+  return {
+    async start(request) {
+      const guard = { cancelled: false };
+      pending.set(request.taskId, guard);
+      try {
+        try {
+          await verify(request);
+        } catch {
+          // No native process was created. Do not leak a local path or IPC error.
+          throw new DownloadStartError(
+            'COOKIE_FILE_REANALYSIS_REQUIRED: Cookie 文件不可用或已失效，请使用有效凭证重新解析',
+            false,
+          );
+        }
+        if (disposed || guard.cancelled) {
+          throw new DownloadStartError('Start cancelled before native dispatch', false);
+        }
+        pending.delete(request.taskId);
+        await engine.start(request);
+      } finally {
+        if (pending.get(request.taskId) === guard) pending.delete(request.taskId);
+      }
+    },
+    async cancel(taskId) {
+      const guard = pending.get(taskId);
+      if (guard) {
+        guard.cancelled = true;
+        return;
+      }
+      await engine.cancel(taskId);
+    },
+    subscribeUpdates(listener) {
+      return engine.subscribeUpdates(listener);
+    },
+    async dispose() {
+      disposed = true;
+      for (const guard of pending.values()) guard.cancelled = true;
+      await engine.dispose?.();
+    },
+  };
+}
+
 export function createCurrentTaskRuntime(options: CurrentTaskRuntimeOptions): CurrentTaskRuntime {
   const queue = new DownloadQueue();
+  const engine = options.environment.validateDownloadCredential
+    ? withCredentialPreflight(options.engine, options.environment.validateDownloadCredential)
+    : options.engine;
   const downloadService = new DownloadService(
     queue,
-    options.engine,
+    engine,
     options.createDownloadAttemptId,
     options.downloadServiceOptions,
   );
@@ -72,6 +133,7 @@ export function createCurrentTaskRuntime(options: CurrentTaskRuntimeOptions): Cu
     options.analyzer,
     options.createAnalysisAttemptId,
     (sourceUrl) => options.environment.getGlobalExtraArgs(sourceUrl),
+    options.environment.getAnalysisExtraArgs,
   );
 
   const execution: CurrentTaskExecution = {
@@ -214,7 +276,7 @@ export function createCurrentTaskRuntime(options: CurrentTaskRuntimeOptions): Cu
     }
 
     const attempt = Promise.resolve()
-      .then(() => options.engine.dispose?.())
+      .then(() => engine.dispose?.())
       .then(() => flushEffects())
       .then(() => options.effectsPort.setTaskbar({ progress: 0, status: 'none' }))
       .then(() => {

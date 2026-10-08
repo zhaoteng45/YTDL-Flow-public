@@ -395,8 +395,8 @@
     "youtube_auth": {
       "file_required": "Choose a Cookies file before connecting.",
       "browser_required": "Choose a browser before connecting.",
-      "file_select_failed": "Failed to choose the Cookies file: {error}",
-      "login_open_failed": "Failed to open the YouTube login page: {error}",
+      "file_select_failed": "Could not select or read the Cookies file. Check that the file exists and is readable, then try again.",
+      "login_open_failed": "Could not open the YouTube sign-in page. Open it in your browser manually.",
       "title": "Use YouTube sign-in",
       "description": "Use your browser’s sign-in data or import an exported cookies file.",
       "browser_tab": "Use browser",
@@ -418,7 +418,8 @@
       "file_path_label": "Cookies file path",
       "cancel": "Cancel",
       "confirm": "Use this browser",
-      "confirm_file": "Use this file"
+      "confirm_file": "Use this file",
+      "manage": "Manage"
     },
     "output": {
       "postprocess_title": "Post-processing"
@@ -630,6 +631,25 @@
       "diagnostics": "Attempt diagnostics",
       "cookies": "Cookies",
       "anonymous": "Anonymous"
+    },
+    "credential_source": {
+      "label": "Actual credential source",
+      "browser": "Browser",
+      "file": "Cookies file",
+      "backup": "Backup Cookies file",
+      "anonymous": "Anonymous"
+    },
+    "credential_reason": {
+      "label": "Credential source reason",
+      "browser-ok": "Read from the selected browser",
+      "browser-unavailable": "Selected browser credentials could not be read; continuing anonymously. You can switch to a Cookies file manually",
+      "file-ok": "Using the imported Cookies file",
+      "backup-file": "Preferred browser could not be read; fell back to the authorized backup Cookies file",
+      "unconfigured": "No site credentials configured; using anonymous access",
+      "backup-not-authorized": "Preferred browser could not be read and backup Cookies file is not authorized; continuing anonymously",
+      "backup-unavailable": "Preferred browser and backup Cookies file were unavailable; continuing anonymously",
+      "preferred-file-unavailable": "Preferred Cookies file was unavailable; continuing anonymously",
+      "smart-anonymous": "Smart analysis switched to an anonymous client for usable formats"
     }
   },
   "pending_list": {

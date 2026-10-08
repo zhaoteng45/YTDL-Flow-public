@@ -1,21 +1,36 @@
-import { existsSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import os from 'node:os';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { execFileSync } from 'node:child_process';
 
-describe('cleanup temp cookies lifecycle contract', () => {
-  it('removes stale ytdl_flow_cookies temporary files during cleanup', () => {
-    const tempFile = join(os.tmpdir(), `ytdl_flow_cookies_${Date.now().toString(16)}.txt`);
-    writeFileSync(tempFile, '# Netscape HTTP Cookie File\n');
+const buildSource = () => readFileSync(resolve('scripts/build.mjs'), 'utf8');
+const cleanupSource = () => readFileSync(resolve('scripts/cleanup.mjs'), 'utf8');
 
-    expect(existsSync(tempFile)).toBe(true);
+describe('safe build and cleanup boundaries', () => {
+  it('never invokes system cleanup during an ordinary production build', () => {
+    expect(buildSource()).not.toMatch(/bun\s+run\s+cleanup|scripts\/cleanup\.mjs/);
+  });
 
-    // 使用 Bun 执行清理脚本
-    execFileSync('bun', [resolve('scripts/cleanup.mjs')], {
-      stdio: 'pipe',
-    });
+  it('has no broad file deletion or process-kill operation in its maintenance entrypoint', () => {
+    expect(cleanupSource()).not.toMatch(/(?:unlinkSync|rmSync|rm\s+-rf|Stop-Process|pkill)/i);
+  });
 
-    expect(existsSync(tempFile)).toBe(false);
+  it('preserves a fresh generated cookie fixture when the maintenance CLI runs', () => {
+    const fileName = `ytdl_flow_cookies_${process.pid}_${Date.now()}_0.txt`;
+    const path = join(os.tmpdir(), fileName);
+    writeFileSync(path, '# fixture only; no account material');
+    try {
+      const output = execFileSync('bun', [resolve('scripts/cleanup.mjs')], {
+        encoding: 'utf8',
+        timeout: 10_000,
+        stdio: 'pipe',
+      });
+      expect(output).toContain('No cleanup performed');
+      expect(existsSync(path)).toBe(true);
+    } finally {
+      // Remove only the fixture created by this test, never scan user temp files.
+      unlinkSync(path);
+    }
   });
 });

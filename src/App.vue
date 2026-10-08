@@ -21,6 +21,8 @@ const store = useAppStore();
 const taskRuntime = createCurrentTaskAppRuntime({
   getGlobalExtraArgs: (sourceUrl) =>
     sourceUrl ? store.getExtraArgsForUrl(sourceUrl) : ({ ...unref(store.extraArgs) }),
+  getAnalysisExtraArgs: (sourceUrl, isCurrent) => store.resolveAnalysisExtraArgs(sourceUrl, isCurrent),
+  validateDownloadCredential: (request) => store.validateDownloadCredential(request),
   getDownloadDir: () =>
     unref(store.downloadDir) ?? unref(store.systemDownloadDir) ?? undefined,
 });

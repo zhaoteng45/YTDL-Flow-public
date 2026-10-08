@@ -37,6 +37,29 @@ const media = (url: string, title: string): CurrentAnalysisMedia => ({
 });
 
 describe('CurrentAnalysisService', () => {
+  it('does not dispatch superseded async preparation and consumes late preparation rejection after invalidation', async () => {
+    const analyzer = new ControlledCurrentAnalyzer();
+    let sequence = 0;
+    let finishOld!: (value: { extraArgs: CurrentExtraArgs }) => void;
+    let rejectCurrent!: (error: unknown) => void;
+    const service = new CurrentAnalysisService(analyzer, () => `async-${++sequence}`, () => ({}), () => {
+      return sequence === 1
+        ? new Promise(resolve => { finishOld = resolve; })
+        : new Promise((_resolve, reject) => { rejectCurrent = reject; });
+    });
+    const old = service.startAnalysis('row', 'https://example.com/old');
+    const current = service.reanalyze('row', 'https://example.com/new');
+    expect((await old.result).status).toBe('stale');
+    finishOld({ extraArgs: { cookies: 'old-browser' } });
+    service.forget('row');
+    expect((await current.result).status).toBe('stale');
+    rejectCurrent(new Error('late preparation rejection'));
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(analyzer.requests).toEqual([]);
+    service.dispose();
+  });
+
   it('settles forgotten, superseded and disposed handles without waiting for a native reply', async () => {
     const analyzer = new ControlledCurrentAnalyzer();
     let id = 0;

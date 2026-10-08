@@ -16,7 +16,7 @@ const tauriBuildScript = readFileSync(resolve('scripts/tauri-build.mjs'), 'utf8'
 
 describe('toolchain hooks for task 2', () => {
   it('uses bun-driven local verification steps in scripts/build.mjs', () => {
-    expect(buildScript).toContain("run('bun run cleanup')");
+    expect(buildScript).not.toContain("run('bun run cleanup')");
     expect(buildScript).toContain("run('bun run typecheck')");
     expect(buildScript).toContain("run('bun run lint')");
     expect(buildScript).toContain("run('bun run tauri:build')");

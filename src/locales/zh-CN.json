@@ -395,8 +395,8 @@
     "youtube_auth": {
       "file_required": "请先选择 Cookies 文件。",
       "browser_required": "请先选择浏览器。",
-      "file_select_failed": "选择 Cookies 文件失败：{error}",
-      "login_open_failed": "无法打开 YouTube 登录页面：{error}",
+      "file_select_failed": "无法选择或读取 Cookies 文件，请确认文件存在且当前账户有读取权限后重试。",
+      "login_open_failed": "无法打开 YouTube 登录页面，请在浏览器中手动打开并登录。",
       "title": "使用 YouTube 登录状态",
       "description": "使用浏览器里的登录状态，或导入已导出的 Cookies 文件。",
       "browser_tab": "使用浏览器",
@@ -418,7 +418,8 @@
       "file_path_label": "Cookies 文件路径",
       "cancel": "取消",
       "confirm": "使用此浏览器",
-      "confirm_file": "使用此文件"
+      "confirm_file": "使用此文件",
+      "manage": "管理"
     },
     "output": {
       "postprocess_title": "后处理"
@@ -630,6 +631,25 @@
       "diagnostics": "尝试诊断",
       "cookies": "Cookies",
       "anonymous": "匿名"
+    },
+    "credential_source": {
+      "label": "实际凭证来源",
+      "browser": "浏览器",
+      "file": "Cookies 文件",
+      "backup": "备用 Cookies 文件",
+      "anonymous": "匿名"
+    },
+    "credential_reason": {
+      "label": "凭证来源说明",
+      "browser-ok": "已读取所选浏览器凭证",
+      "browser-unavailable": "所选浏览器凭证不可读取，已使用匿名方式；可手动切换为 Cookies 文件",
+      "file-ok": "已使用导入的 Cookies 文件",
+      "backup-file": "首选浏览器不可读取，已回退到已授权的备用 Cookies 文件",
+      "unconfigured": "未配置站点凭证，使用匿名方式",
+      "backup-not-authorized": "首选浏览器不可读取，且未授权备用 Cookies 文件，已使用匿名方式",
+      "backup-unavailable": "首选浏览器与备用 Cookies 文件均不可用，已使用匿名方式",
+      "preferred-file-unavailable": "首选 Cookies 文件不可用，已使用匿名方式",
+      "smart-anonymous": "智能分析已切换为匿名客户端以获取可用画质"
     }
   },
   "pending_list": {

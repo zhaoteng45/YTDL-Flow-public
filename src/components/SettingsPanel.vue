@@ -251,6 +251,7 @@ const initCookiesState = () => {
         if (cookieFile.value !== val) cookieFile.value = val;
     }
 };
+initCookiesState();
 
 const binariesInfo = ref({ ytdlp: 'Unknown', ffmpeg: 'Unknown', bun: 'Unknown' });
 const binariesLoadState = ref<'loading' | 'ready' | 'error'>('loading');
@@ -369,6 +370,9 @@ onMounted(async () => {
     }
 });
 
+let youtubeFileEpoch = 0;
+let youtubeDisconnectEpoch = 0;
+
 // Keep the YouTube login editor in sync with the persisted YouTube-only profile.
 watch(() => platformCookies.value.youtube, () => {
     if (browserOptions.value.length > 0) {
@@ -376,24 +380,47 @@ watch(() => platformCookies.value.youtube, () => {
     }
 });
 
+watch(
+    () => store.platformCredentialConfigs.youtube,
+    (nextConfig) => {
+        if (nextConfig?.preferred.kind === 'none') {
+            youtubeDisconnectEpoch++;
+            youtubeFileEpoch++;
+        }
+    },
+    { deep: true },
+);
+
 const selectCookieFile = async () => {
     youtubeAuthStatus.value = null;
+    const epoch = ++youtubeFileEpoch;
+    const wasModalOpen = showYouTubeModal.value;
+    const startTab = youtubeAuthType.value;
+    const startDisconnect = youtubeDisconnectEpoch;
+    const isCurrent = () =>
+        !disposed &&
+        epoch === youtubeFileEpoch &&
+        startDisconnect === youtubeDisconnectEpoch &&
+        (!wasModalOpen || showYouTubeModal.value) &&
+        youtubeAuthType.value === startTab;
     try {
         const selected = await store.chooseCookieFile(t('settings.cookies_pick_file'));
-        if (selected) {
-            const inspection = await store.inspectCookieFile(selected, 'https://www.youtube.com/');
-            if (inspection.state === 'invalid' || inspection.state === 'mismatch') {
-                youtubeAuthStatus.value = { success: false, message: t(`input.cookie_state.${inspection.state}`) };
-                return;
-            }
-            cookieFile.value = selected;
-            youtubeAuthStatus.value = { success: inspection.state === 'imported', message: t(`input.cookie_state.${inspection.state}`) };
+        if (!selected || !isCurrent()) return;
+        const normalized = selected.trim();
+        if (!normalized) return;
+        const inspection = await store.inspectCookieFile(normalized, 'https://www.youtube.com/');
+        if (!isCurrent()) return;
+        if (inspection.state !== 'imported') {
+            youtubeAuthStatus.value = { success: false, message: t(`input.cookie_state.${inspection.state}`) };
+            return;
         }
-    } catch (e) {
-        console.error('Failed to select file', e);
+        cookieFile.value = normalized;
+        youtubeAuthStatus.value = { success: true, message: t(`input.cookie_state.${inspection.state}`) };
+    } catch {
+        if (!isCurrent()) return;
         youtubeAuthStatus.value = {
             success: false,
-            message: t('settings.youtube_auth.file_select_failed', { error: String(e) }),
+            message: t('settings.youtube_auth.file_select_failed'),
         };
     }
 };
@@ -460,11 +487,10 @@ const openYouTubeLogin = async () => {
     youtubeAuthStatus.value = null;
     try {
         await store.openExternalUrl('https://accounts.google.com/ServiceLogin?service=youtube');
-    } catch (e) {
-        console.error('Failed to open YouTube login', e);
+    } catch {
         youtubeAuthStatus.value = {
             success: false,
-            message: t('settings.youtube_auth.login_open_failed', { error: String(e) }),
+            message: t('settings.youtube_auth.login_open_failed'),
         };
     }
 };
@@ -484,15 +510,16 @@ const youtubeConnectionInfo = computed(() => {
 
 const openYouTubeModal = () => {
     resetBrowserCheck();
+    youtubeFileEpoch++;
     youtubeAuthStatus.value = null;
     showYouTubeModal.value = true;
-    // Default to browser if available
-    if (browserOptions.value.length > 0) {
-        youtubeAuthType.value = 'browser';
-    } else {
-        youtubeAuthType.value = 'file';
-    }
+    youtubeAuthType.value = props.connectionEntry === 'youtube-file' ? 'file' : 'browser';
 };
+
+watch(youtubeAuthType, () => {
+    youtubeFileEpoch++;
+    resetBrowserCheck();
+});
 
 const confirmYouTubeAuth = async () => {
     if (isCheckingBrowser.value) return;
@@ -524,7 +551,7 @@ const confirmYouTubeAuth = async () => {
         }
         const browser = selectedBrowser.value.trim();
         if (checkedBrowser.value !== browser && !await autoDetectBrowser()) return;
-        if (!showYouTubeModal.value || selectedBrowser.value.trim() !== browser) return;
+        if (!showYouTubeModal.value || youtubeAuthType.value !== 'browser' || selectedBrowser.value.trim() !== browser) return;
         cookieMode.value = 'browser';
         store.setPlatformCookie('youtube', browser);
     }
@@ -533,6 +560,9 @@ const confirmYouTubeAuth = async () => {
 };
 
 const disconnectYouTube = () => {
+    youtubeDisconnectEpoch++;
+    youtubeFileEpoch++;
+    resetBrowserCheck();
     store.clearPlatformCookie('youtube');
     cookieMode.value = 'none';
     cookieFile.value = '';
@@ -703,6 +733,7 @@ const releaseModalFocus = () => {
 };
 
 watch(showYouTubeModal, (open) => {
+    youtubeFileEpoch++;
     if (open) {
         nextTick(() => focusFirstInModal(youtubeModalRef.value));
     } else {
@@ -723,6 +754,7 @@ watch(showBiliQr, (open) => {
 
 onUnmounted(() => {
     disposed = true;
+    youtubeFileEpoch++;
     if (pollTimer) {
         clearInterval(pollTimer);
         pollTimer = null;
@@ -970,6 +1002,9 @@ const handleUASelect = (e: Event) => {
                                 <NeoIcon name="cookie" :size="14" class="u-mr-xs" />
                                 <span class="cookie-connection-name">{{ youtubeConnectionInfo }}<small class="helper-text">{{ t('settings.auth.credentials_pending') }}</small></span>
                             </div>
+                            <button class="neo-button secondary small" type="button" data-youtube-manage @click="openYouTubeModal">
+                                {{ t('settings.youtube_auth.manage') }}
+                            </button>
                             <button class="text-btn danger small" @click="disconnectYouTube">
                                 {{ t('settings.auth.logout') }}
                             </button>
@@ -1536,6 +1571,7 @@ const handleUASelect = (e: Event) => {
                     <div class="text-warning small-text" style="margin-top: 8px;">
                         {{ t('settings.youtube_auth.uncommon_browser_tip') }}
                     </div>
+
                 </div>
 
                 <div v-if="youtubeAuthType === 'file'" class="auth-content fade-in">
@@ -1815,6 +1851,7 @@ const handleUASelect = (e: Event) => {
 
 .auth-tab {
     flex: 1;
+    min-height: 44px;
     padding: var(--spacing-sm) var(--spacing-md);
     border: 1px solid transparent;
     /* Prepare for border transition */
@@ -1826,6 +1863,12 @@ const handleUASelect = (e: Event) => {
     transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease, opacity 160ms ease;
     opacity: 0.7;
     /* Default opacity */
+}
+
+.file-input-wrapper > .neo-button,
+.modal-footer > .neo-button {
+    min-height: 44px;
+    flex-shrink: 0;
 }
 
 .auth-tab:hover {

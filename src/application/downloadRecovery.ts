@@ -7,6 +7,7 @@ export interface DownloadRecovery {
 
 // Ordered by specificity; a 403 alone does not prove cookies are expired.
 const rules: readonly [RegExp, string, DownloadRecoveryAction][] = [
+  [/COOKIE_FILE_REANALYSIS_REQUIRED/i, 'cookieFile', 'credentials'],
   [/SMART_DECISION_REQUIRED|SMART_NO_USABLE_FORMAT|JS_RUNTIME_FAILURE/i, 'decision', 'reanalyze'],
   [/failed to decrypt|DPAPI|secretstorage/i, 'cookieDecrypt', 'credentials'],
   [/could not copy .*cookie database|cookie database.*locked/i, 'cookieLocked', 'credentials'],
@@ -24,7 +25,7 @@ const rules: readonly [RegExp, string, DownloadRecoveryAction][] = [
 export function getDownloadRecovery(error?: string): DownloadRecovery | undefined {
   if (!error?.trim()) return undefined;
   for (const [pattern, kind, action] of rules) {
-    if (pattern.test(error)) return { kind, action, messageKey: `download_list.recovery.${kind}` };
+    if (pattern.test(error)) return { kind, action, messageKey: kind === 'cookieFile' ? 'download_list.recovery.authentication' : `download_list.recovery.${kind}` };
   }
   return { kind: 'unknown', action: 'retry', messageKey: 'download_list.recovery.unknown' };
 }

@@ -80,24 +80,175 @@ const media = (url: string, title: string): CurrentAnalysisMedia => ({
 });
 
 describe('CurrentTaskService analysis lifecycle', () => {
+  it('keeps a row and typed analysis failure when async credential preparation rejects', async () => {
+    const analyzer = new ControlledAnalyzer();
+    const analysis = new CurrentAnalysisService(analyzer, () => 'prepare-attempt', () => ({}), async () => {
+      throw new Error('credential preparation unavailable');
+    });
+    const tasks = new CurrentTaskService(analysis, () => 'prepare-row');
+    try {
+      const handle = tasks.analyze('https://www.youtube.com/watch?v=fixture');
+      expect(tasks.getRow(handle.rowId)?.status).toBe('analyzing');
+      expect((await handle.result).status).toBe('failed');
+      expect(tasks.getRow(handle.rowId)).toMatchObject({
+        rowId: 'prepare-row', failureKind: 'analysis', status: 'error',
+        failureReason: 'credential preparation unavailable', actions: { canReanalyze: true },
+      });
+      expect(analyzer.requests).toEqual([]);
+    } finally { tasks.dispose(); }
+  });
+
   it.each(['web', 'mweb'])('uses SMART winner %s and anonymous auth policy for download and retry', async (winner) => {
     const globals = { playerClient: 'smart', cookies: 'edge' };
     const { tasks, analyzer, engine } = lifecycle(() => globals);
     try {
       const handle = tasks.analyze('https://www.youtube.com/watch?v=test');
+      expect(tasks.getRow(handle.rowId)?.credential).toBeUndefined();
       analyzer.resolve(0, {
         ...media('https://www.youtube.com/watch?v=test', 'Winner'),
         smartDecision: { playerClient: winner, maxHeight: 2160, authMode: 'anonymous', potMode: 'unknown', reason: 'usable inventory winner' },
       });
       await handle.result;
+      expect(tasks.getRow(handle.rowId)?.credential).toEqual({
+        source: 'anonymous',
+        reason: 'smart-anonymous',
+      });
       await tasks.start(handle.rowId);
       expect(engine.starts[0]?.extraArgs).toMatchObject({ playerClient: winner, cookies: '' });
+      expect(tasks.getRow(handle.rowId)?.credential).toEqual({
+        source: 'anonymous',
+        reason: 'smart-anonymous',
+      });
       const attempt = tasks.getRow(handle.rowId)!;
       engine.emit({ type: 'result', taskId: attempt.attemptId, outcome: 'Failed' });
       globals.playerClient = 'mweb';
       await tasks.retry(handle.rowId);
       expect(engine.starts[1]?.extraArgs).toMatchObject({ playerClient: winner, cookies: '' });
+      expect(tasks.getRow(handle.rowId)?.credential).toEqual({
+        source: 'anonymous',
+        reason: 'smart-anonymous',
+      });
     } finally { tasks.dispose(); }
+  });
+
+  it('reconciles prepared browser/file/backup credentials with SMART authMode while preserving fallback reasons and capture isolation', async () => {
+    let sequence = 0;
+    const id = () => `smart-cred-${++sequence}`;
+    const analyzer = new ControlledAnalyzer();
+    let nextPrepared: { extraArgs: CurrentExtraArgs; credential?: import('../../contracts/src').CurrentCredentialSelection } = {
+      extraArgs: { cookies: 'edge', playerClient: 'smart' },
+      credential: { source: 'browser', reason: 'browser-ok' },
+    };
+    const analysis = new CurrentAnalysisService(
+      analyzer,
+      id,
+      () => ({}),
+      async () => ({
+        extraArgs: { ...nextPrepared.extraArgs },
+        ...(nextPrepared.credential ? { credential: { ...nextPrepared.credential } } : {}),
+      }),
+    );
+    const engine = new LifecycleEngine();
+    const queue = new DownloadQueue();
+    const core = new DownloadService(queue, engine, id, { maxConcurrent: 1, settlementDelayMs: 0 });
+    const query = new TaskQueryService(queue);
+    const downloads = new CurrentDownloadService(core, {
+      getGlobalExtraArgs: () => ({}),
+      getDownloadDir: () => undefined,
+    }, query);
+    const tasks = new CurrentTaskService(analysis, id, {
+      query,
+      downloads,
+      subscribeTasks: (listener) => core.subscribeTasks(listener),
+      dispose: () => core.dispose(),
+    });
+
+    try {
+      // 1. Browser prepared -> anonymous SMART winner => anonymous (smart-anonymous)
+      const browserAnon = tasks.analyze('https://www.youtube.com/watch?v=browser-anon');
+      expect(tasks.getRow(browserAnon.rowId)?.credential).toBeUndefined();
+      await Promise.resolve();
+      analyzer.resolve(0, {
+        ...media('https://www.youtube.com/watch?v=browser-anon', 'Browser Anon'),
+        smartDecision: { playerClient: 'web', maxHeight: 1080, authMode: 'anonymous', potMode: 'unknown', reason: 'winner', clearSessionInputs: true },
+      });
+      await browserAnon.result;
+      expect(tasks.getRow(browserAnon.rowId)?.credential).toEqual({
+        source: 'anonymous',
+        reason: 'smart-anonymous',
+      });
+
+      // 2. Backup file prepared -> anonymous SMART winner => anonymous (smart-anonymous) preserving browserFailure
+      nextPrepared = {
+        extraArgs: { cookies: 'C:/fixtures/backup.txt', playerClient: 'smart' },
+        credential: { source: 'file', reason: 'backup-file', browserFailure: 'locked' },
+      };
+      const backupAnon = tasks.analyze('https://www.youtube.com/watch?v=backup-anon');
+      await Promise.resolve();
+      analyzer.resolve(1, {
+        ...media('https://www.youtube.com/watch?v=backup-anon', 'Backup Anon'),
+        smartDecision: { playerClient: 'mweb', maxHeight: 1080, authMode: 'anonymous', potMode: 'unknown', reason: 'winner', clearSessionInputs: true },
+      });
+      await backupAnon.result;
+      expect(tasks.getRow(backupAnon.rowId)?.credential).toEqual({
+        source: 'anonymous',
+        reason: 'smart-anonymous',
+        browserFailure: 'locked',
+      });
+
+      // 3. Backup file prepared -> cookies SMART winner => retains file / backup-file
+      const backupCookies = tasks.analyze('https://www.youtube.com/watch?v=backup-cookies');
+      await Promise.resolve();
+      analyzer.resolve(2, {
+        ...media('https://www.youtube.com/watch?v=backup-cookies', 'Backup Cookies'),
+        smartDecision: { playerClient: 'web', maxHeight: 2160, authMode: 'cookies', potMode: 'unknown', reason: 'winner', clearSessionInputs: false },
+      });
+      await backupCookies.result;
+      expect(tasks.getRow(backupCookies.rowId)?.credential).toEqual({
+        source: 'file',
+        reason: 'backup-file',
+        browserFailure: 'locked',
+      });
+
+      // 4. Already anonymous from preparation fallback -> keeps specific fallback reason & failure diagnostics
+      nextPrepared = {
+        extraArgs: { cookies: '', playerClient: 'smart' },
+        credential: {
+          source: 'anonymous',
+          reason: 'backup-unavailable',
+          browserFailure: 'not_found',
+          fileFailure: 'expired',
+        },
+      };
+      const fallbackAnon = tasks.analyze('https://www.youtube.com/watch?v=fallback-anon');
+      await Promise.resolve();
+      analyzer.resolve(3, {
+        ...media('https://www.youtube.com/watch?v=fallback-anon', 'Fallback Anon'),
+        smartDecision: { playerClient: 'web', maxHeight: 720, authMode: 'anonymous', potMode: 'unknown', reason: 'winner', clearSessionInputs: true },
+      });
+      await fallbackAnon.result;
+      expect(tasks.getRow(fallbackAnon.rowId)?.credential).toEqual({
+        source: 'anonymous',
+        reason: 'backup-unavailable',
+        browserFailure: 'not_found',
+        fileFailure: 'expired',
+      });
+
+      // 5. Captured row never claims a platform credential source even if analyzer returns smartDecision
+      const captured = tasks.analyzeCaptured({
+        captureContextId: 'ctx-1',
+        siteLabel: 'youtube.com',
+        mediaKind: 'video',
+      });
+      analyzer.resolve(4, {
+        ...media('capture:youtube.com', 'Captured'),
+        smartDecision: { playerClient: 'web', maxHeight: 1080, authMode: 'anonymous', potMode: 'unknown', reason: 'winner', clearSessionInputs: true },
+      });
+      await captured.result;
+      expect(tasks.getRow(captured.rowId)?.credential).toBeUndefined();
+    } finally {
+      tasks.dispose();
+    }
   });
   it('runs multiple independent rows through one-slot row-scoped lifecycle controls', async () => {
     const { tasks, analyzer, engine, query } = lifecycle();

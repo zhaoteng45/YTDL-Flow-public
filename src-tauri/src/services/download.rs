@@ -3,6 +3,7 @@ use crate::models::{
     AnalysisLogPayload, DownloadOutcome, DownloadProgressPayload, DownloadRequest, DownloadType,
     ExtraArgs, VideoMetadata,
 };
+use crate::services::cookie_inspection;
 use crate::services::youtube;
 use crate::state::DownloadState;
 use regex::Regex;
@@ -869,54 +870,46 @@ impl DownloadService {
         Ok(ver)
     }
 
-    /// 将 JSON 格式 Cookie 转换为 Netscape HTTP Cookie File 格式
+    /// 将 JSON 格式 Cookie 转换为 Netscape HTTP Cookie File 格式。
+    ///
+    /// 使用与检查门槛共享的最小受检解析：任一非法条目都安全拒绝（返回内容无关
+    /// 的错误码），不补默认 YouTube 域、不跳过坏行、不补空值。所有输出字段不含
+    /// NUL/CR/LF/TAB，避免 path 等字段注入额外 Cookie 行。
     pub fn convert_json_cookies_to_netscape(json_content: &str) -> Result<String, String> {
-        let parsed: serde_json::Value = serde_json::from_str(json_content)
-            .map_err(|e| format!("Invalid JSON cookie format: {}", e))?;
+        let cookies =
+            cookie_inspection::parse_json_cookie_export(json_content).map_err(str::to_string)?;
 
-        let cookies_arr = parsed
-            .as_array()
-            .ok_or_else(|| "JSON cookies must be an array of cookie objects".to_string())?;
-
-        let mut lines = Vec::with_capacity(cookies_arr.len() + 1);
+        let mut lines = Vec::with_capacity(cookies.len() + 1);
         lines.push("# Netscape HTTP Cookie File".to_string());
 
-        for c in cookies_arr {
-            let domain = c
-                .get("domain")
-                .and_then(|v| v.as_str())
-                .unwrap_or(".youtube.com");
-            let name = c.get("name").and_then(|v| v.as_str()).unwrap_or("");
-            let value = c.get("value").and_then(|v| v.as_str()).unwrap_or("");
-            let path = c.get("path").and_then(|v| v.as_str()).unwrap_or("/");
-            let secure = c.get("secure").and_then(|v| v.as_bool()).unwrap_or(false);
-
-            if name.is_empty() {
-                continue;
-            }
-
-            let include_subdomains = if domain.starts_with('.') {
-                "TRUE"
+        for cookie in &cookies {
+            // `hostOnly` decides subdomain scope; the leading-dot convention is
+            // the fallback when the flag is absent. The domain field and the
+            // include-subdomains flag must agree for Mozilla-style loaders.
+            let include_subdomains = if cookie.host_only { "FALSE" } else { "TRUE" };
+            let domain_field = if cookie.host_only {
+                cookie.domain.trim_start_matches('.').to_string()
             } else {
-                "FALSE"
+                format!(".{}", cookie.domain.trim_start_matches('.'))
             };
-            let secure_str = if secure { "TRUE" } else { "FALSE" };
-
-            let expiry: i64 = c
-                .get("expirationDate")
-                .or_else(|| c.get("expiry"))
-                .and_then(|v| {
-                    if let Some(f) = v.as_f64() {
-                        Some(f.round() as i64)
-                    } else {
-                        v.as_i64()
-                    }
-                })
-                .unwrap_or(2147483647);
+            // Mozilla-style loaders (yt-dlp) recognize HttpOnly only through
+            // this prefix; the attribute must survive the JSON conversion.
+            let domain_field = if cookie.http_only {
+                format!("#HttpOnly_{domain_field}")
+            } else {
+                domain_field
+            };
+            let secure_str = if cookie.secure { "TRUE" } else { "FALSE" };
 
             lines.push(format!(
                 "{}\t{}\t{}\t{}\t{}\t{}\t{}",
-                domain, include_subdomains, path, secure_str, expiry, name, value
+                domain_field,
+                include_subdomains,
+                cookie.path,
+                secure_str,
+                cookie.expiry,
+                cookie.name,
+                cookie.value
             ));
         }
 
@@ -924,21 +917,38 @@ impl DownloadService {
         Ok(lines.join("\n"))
     }
 
+    /// 把已校验的 Netscape 内容写入本应用独占的临时素材文件。
+    fn write_temp_cookie_material(netscape: &str) -> std::io::Result<std::path::PathBuf> {
+        let seq = COOKIE_TEMP_SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let pid = std::process::id();
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
+        let temp_path =
+            std::env::temp_dir().join(format!("ytdl_flow_cookies_{pid}_{timestamp}_{seq}.txt"));
+        std::fs::write(&temp_path, netscape)?;
+        Ok(temp_path)
+    }
+
     /// 嗅探 Cookies 文件并建立受控临时素材。
     /// 若为 JSON 格式则转换为独立命名临时 Netscape 文本文件，由 RAII guard (TempCookieMaterial)
     /// 在任务结束（正常完成、失败、取消、watchdog）时自动清理；用户原有 .txt 文件永不删除。
-    pub fn resolve_cookies_material(path_str: &str) -> TempCookieMaterial {
+    ///
+    /// 返回 `Result` 的生产 seam：JSON 导出一旦无法安全转换，调用方必须拒绝执行，
+    /// 不能退回把原始 JSON 交给 sidecar。
+    pub fn resolve_cookies_material(path_str: &str) -> Result<TempCookieMaterial, String> {
         let trimmed = path_str.trim();
         if trimmed.is_empty() || Self::is_browser_cookie(trimmed) {
-            return TempCookieMaterial::empty();
+            return Ok(TempCookieMaterial::empty());
         }
 
         let path = std::path::Path::new(path_str);
         if !path.exists() || !path.is_file() {
-            return TempCookieMaterial {
+            return Ok(TempCookieMaterial {
                 cookie_arg: Some(path_str.to_string()),
                 cleanup_path: None,
-            };
+            });
         }
 
         let is_json_ext = path
@@ -947,54 +957,71 @@ impl DownloadService {
             .map(|ext| ext.eq_ignore_ascii_case("json"))
             .unwrap_or(false);
 
-        let maybe_json_content = if is_json_ext {
-            std::fs::read_to_string(path).ok()
-        } else if let Ok(content) = std::fs::read_to_string(path) {
-            let trimmed = content.trim_start();
-            if trimmed.starts_with('[') {
-                Some(trimmed.to_string())
-            } else {
-                None
+        // Read the file exactly once so the JSON decision and the conversion
+        // operate on the same bytes; a later re-read could disagree (TOCTOU).
+        let content = match std::fs::read_to_string(path) {
+            Ok(content) => content,
+            // A .json file that cannot be read cannot be safely converted.
+            Err(_) if is_json_ext => return Err("cookie-material-unreadable".to_string()),
+            // A non-JSON file is a native Cookie file; hand it through as-is.
+            Err(_) => {
+                return Ok(TempCookieMaterial {
+                    cookie_arg: Some(path_str.to_string()),
+                    cleanup_path: None,
+                });
             }
-        } else {
-            None
         };
 
-        if let Some(content) = maybe_json_content {
-            if let Ok(netscape) = Self::convert_json_cookies_to_netscape(&content) {
-                let seq = COOKIE_TEMP_SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                let pid = std::process::id();
-                let timestamp = std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .map(|d| d.as_nanos())
-                    .unwrap_or(0);
-                let temp_path = std::env::temp_dir()
-                    .join(format!("ytdl_flow_cookies_{pid}_{timestamp}_{seq}.txt"));
-                if std::fs::write(&temp_path, netscape).is_ok() {
-                    return TempCookieMaterial {
-                        cookie_arg: Some(temp_path.to_string_lossy().to_string()),
-                        cleanup_path: Some(temp_path),
-                    };
-                }
-            }
+        let is_json = is_json_ext || content.trim_start().starts_with('[');
+        if !is_json {
+            return Ok(TempCookieMaterial {
+                cookie_arg: Some(path_str.to_string()),
+                cleanup_path: None,
+            });
         }
 
-        TempCookieMaterial {
-            cookie_arg: Some(path_str.to_string()),
-            cleanup_path: None,
-        }
+        // Fail closed: a JSON export that cannot be validated and converted is
+        // rejected before any child process starts; the raw JSON is never
+        // handed to the sidecar as a fallback.
+        let netscape = Self::convert_json_cookies_to_netscape(&content)?;
+        let temp_path = Self::write_temp_cookie_material(&netscape)
+            .map_err(|_| "cookie-material-write-failed".to_string())?;
+        Ok(TempCookieMaterial {
+            cookie_arg: Some(temp_path.to_string_lossy().to_string()),
+            cleanup_path: Some(temp_path),
+        })
+    }
+
+    /// 生产调用点使用的素材解析：只处理真实文件 Cookie，并把安全拒绝映射为
+    /// 可返回给前端的安全错误，绝不把原始 JSON 继续派发。
+    fn resolve_cookies_material_for(
+        extra_args: Option<&ExtraArgs>,
+    ) -> AppResult<TempCookieMaterial> {
+        let Some(cookies) = extra_args
+            .and_then(|extra| extra.cookies.as_deref())
+            .map(str::trim)
+            .filter(|cookies| !cookies.is_empty() && !Self::is_browser_cookie(cookies))
+        else {
+            return Ok(TempCookieMaterial::empty());
+        };
+        Self::resolve_cookies_material(cookies)
+            .map_err(|code| AppError::Validation(format!("cookie material rejected: {code}")))
     }
 
     /// 嗅探 Cookies 文件；若为 JSON 格式则自动转为 Netscape 格式临时文件并返回该路径。
     pub fn resolve_cookies_arg(path_str: &str) -> String {
-        let material = Self::resolve_cookies_material(path_str);
-        let arg = material
-            .cookie_arg
-            .clone()
-            .unwrap_or_else(|| path_str.to_string());
-        // For backwards compatibility with direct unit test calls expecting file persistence:
-        std::mem::forget(material);
-        arg
+        match Self::resolve_cookies_material(path_str) {
+            Ok(material) => {
+                let arg = material
+                    .cookie_arg
+                    .clone()
+                    .unwrap_or_else(|| path_str.to_string());
+                // For backwards compatibility with direct unit test calls expecting file persistence:
+                std::mem::forget(material);
+                arg
+            }
+            Err(_) => path_str.to_string(),
+        }
     }
 
     fn decode_bytes(bytes: &[u8]) -> String {
@@ -1133,13 +1160,7 @@ impl DownloadService {
             validate_download_url(&url)?;
         }
 
-        let _cookie_material = extra_args
-            .as_ref()
-            .and_then(|extra| extra.cookies.as_deref())
-            .map(str::trim)
-            .filter(|cookies| !cookies.is_empty() && !Self::is_browser_cookie(cookies))
-            .map(Self::resolve_cookies_material)
-            .unwrap_or_else(TempCookieMaterial::empty);
+        let _cookie_material = Self::resolve_cookies_material_for(extra_args.as_ref())?;
         let mut args =
             build_common_args_with_cookie(&extra_args, captured, _cookie_material.cookie_arg());
         let guard_proxy = egress_guard.as_ref().map(|guard| guard.proxy_url());
@@ -2108,13 +2129,7 @@ impl DownloadService {
             validate_download_url(&url)?;
         }
 
-        let _cookie_material = extra_args
-            .as_ref()
-            .and_then(|extra| extra.cookies.as_deref())
-            .map(str::trim)
-            .filter(|cookies| !cookies.is_empty() && !Self::is_browser_cookie(cookies))
-            .map(Self::resolve_cookies_material)
-            .unwrap_or_else(TempCookieMaterial::empty);
+        let _cookie_material = Self::resolve_cookies_material_for(extra_args.as_ref())?;
         let mut args =
             build_common_args_with_cookie(&extra_args, captured, _cookie_material.cookie_arg());
         if !captured {
@@ -3963,7 +3978,8 @@ mod tests {
 
         let temp_path;
         {
-            let material = DownloadService::resolve_cookies_material(temp_json.to_str().unwrap());
+            let material = DownloadService::resolve_cookies_material(temp_json.to_str().unwrap())
+                .expect("valid json fixture");
             assert!(material.cookie_arg().is_some());
             let path = material
                 .cleanup_path()
@@ -3984,7 +4000,8 @@ mod tests {
             std::env::temp_dir().join(format!("test_cookie_native_{}.txt", std::process::id()));
         std::fs::write(&dummy_txt, "some native netscape cookie content").unwrap();
         {
-            let material = DownloadService::resolve_cookies_material(dummy_txt.to_str().unwrap());
+            let material = DownloadService::resolve_cookies_material(dummy_txt.to_str().unwrap())
+                .expect("native txt fixture");
             assert_eq!(material.cleanup_path(), None);
         }
         assert!(
@@ -4204,10 +4221,395 @@ mod tests {
             .expect("should parse valid json cookies");
 
         assert!(netscape.starts_with("# Netscape HTTP Cookie File\n"));
-        assert!(netscape.contains(".youtube.com\tTRUE\t/\tTRUE\t1788451878\tLOGIN_INFO\ttoken123"));
-        assert!(
-            netscape.contains("youtube.com\tFALSE\t/pref\tFALSE\t2147483647\tPREF\tf1=50000000")
+        // A fractional date floors (never rounds forward) and a missing date
+        // is a session cookie (0), matching the inspection gate.
+        assert!(netscape.contains(".youtube.com\tTRUE\t/\tTRUE\t1788451877\tLOGIN_INFO\ttoken123"));
+        assert!(netscape.contains("youtube.com\tFALSE\t/pref\tFALSE\t0\tPREF\tf1=50000000"));
+    }
+
+    #[test]
+    fn inspected_json_domain_scope_survives_netscape_conversion() {
+        use crate::services::cookie_inspection::inspect;
+
+        // F3 contract: a JSON export the inspection gate accepts for a target
+        // host must still be accepted for the same host after the real
+        // JSON -> Netscape conversion that execution consumes.
+        let fixture = r#"[{"domain":"youtube.com","hostOnly":false,"name":"TEST_ONLY","value":"SYNTHETIC","expirationDate":2147483647}]"#;
+        let before = inspect(fixture, Some("https://www.youtube.com/"), 2000000000);
+        assert_eq!(before.state, "imported");
+
+        let converted = DownloadService::convert_json_cookies_to_netscape(fixture)
+            .expect("synthetic JSON fixture must convert");
+        let after = inspect(&converted, Some("https://www.youtube.com/"), 2000000000);
+        assert_eq!(
+            after.state, "imported",
+            "JSON accepted for www.youtube.com must retain domain scope after conversion; converted material:\n{converted}"
         );
+    }
+
+    #[test]
+    fn json_host_only_scope_matrix_survives_conversion() {
+        use crate::services::cookie_inspection::inspect;
+
+        let target = Some("https://www.youtube.com/");
+        // (JSON scope fields, state expected both before and after conversion)
+        let cases = [
+            (r#""domain":"youtube.com","hostOnly":false"#, "imported"),
+            (r#""domain":".youtube.com","hostOnly":false"#, "imported"),
+            (r#""domain":"youtube.com","hostOnly":true"#, "mismatch"),
+            (r#""domain":".youtube.com","hostOnly":true"#, "mismatch"),
+            (r#""domain":"youtube.com""#, "mismatch"),
+            (r#""domain":".youtube.com""#, "imported"),
+        ];
+        for (scope, expected) in cases {
+            let json = format!(
+                r#"[{{{scope},"name":"TEST_ONLY","value":"SYNTHETIC","expirationDate":2147483647}}]"#
+            );
+            let before = inspect(&json, target, 2000000000);
+            assert_eq!(
+                before.state, expected,
+                "inspection before conversion for {scope}"
+            );
+            let converted = DownloadService::convert_json_cookies_to_netscape(&json)
+                .unwrap_or_else(|e| panic!("fixture must convert ({scope}): {e}"));
+            let after = inspect(&converted, target, 2000000000);
+            assert_eq!(
+                after.state, expected,
+                "scope must survive conversion for {scope}; converted material:\n{converted}"
+            );
+        }
+    }
+
+    #[test]
+    fn json_domain_scope_conversion_does_not_widen_to_unrelated_hosts() {
+        use crate::services::cookie_inspection::inspect;
+
+        let json = r#"[{"domain":"youtube.com","hostOnly":false,"name":"TEST_ONLY","value":"SYNTHETIC","expirationDate":2147483647}]"#;
+        let converted = DownloadService::convert_json_cookies_to_netscape(json)
+            .expect("synthetic JSON fixture must convert");
+        for target in [
+            "https://notyoutube.com/",
+            "https://evil-youtube.com/",
+            "https://youtube.com.evil.test/",
+        ] {
+            assert_eq!(
+                inspect(&converted, Some(target), 2000000000).state,
+                "mismatch",
+                "{target} must not receive a youtube.com domain cookie"
+            );
+        }
+    }
+
+    #[test]
+    fn json_conversion_keeps_domain_dot_and_include_subdomains_flag_consistent() {
+        // MozillaCookieJar-based loaders (yt-dlp) reject rows whose
+        // include-subdomains flag disagrees with the leading dot.
+        let cases = [
+            (
+                r#""domain":"youtube.com","hostOnly":false"#,
+                ".youtube.com\tTRUE",
+            ),
+            (
+                r#""domain":".youtube.com","hostOnly":true"#,
+                "youtube.com\tFALSE",
+            ),
+            (
+                r#""domain":".youtube.com","hostOnly":false"#,
+                ".youtube.com\tTRUE",
+            ),
+            (
+                r#""domain":"youtube.com","hostOnly":true"#,
+                "youtube.com\tFALSE",
+            ),
+        ];
+        for (scope, expected_prefix) in cases {
+            let json = format!(
+                r#"[{{{scope},"name":"TEST_ONLY","value":"SYNTHETIC","expirationDate":2147483647}}]"#
+            );
+            let converted = DownloadService::convert_json_cookies_to_netscape(&json)
+                .expect("synthetic JSON fixture must convert");
+            let row = converted
+                .lines()
+                .find(|line| line.contains("TEST_ONLY"))
+                .expect("converted row must exist");
+            assert!(
+                row.starts_with(expected_prefix),
+                "row must keep dot/flag agreement for {scope}: {row}"
+            );
+        }
+    }
+
+    #[test]
+    fn json_expiry_representations_survive_conversion() {
+        use crate::services::cookie_inspection::inspect;
+
+        let target = Some("https://www.youtube.com/");
+        let now = 2_000_000_000_i64;
+        let stale = 1_999_999_999_i64;
+        let base = r#""domain":".youtube.com","name":"TEST_ONLY","value":"SYNTHETIC""#;
+        // (expiry fields, state expected both before and after conversion)
+        let cases: [(String, &str); 7] = [
+            (format!(r#""expirationDate":{stale}"#), "expired"),
+            (format!(r#""expiry":{stale}"#), "expired"),
+            (format!(r#""expires":{stale}"#), "expired"),
+            (r#""session":true"#.to_string(), "imported"),
+            (
+                format!(r#""session":true,"expirationDate":{stale}"#),
+                "imported",
+            ),
+            (format!(r#""expirationDate":{now}"#), "expired"),
+            (format!(r#""expirationDate":{}"#, now + 1), "imported"),
+        ];
+        for (expiry_fields, expected) in cases {
+            let json = format!(r#"[{{{base},{expiry_fields}}}]"#);
+            let before = inspect(&json, target, now);
+            assert_eq!(
+                before.state, expected,
+                "inspection before conversion for {expiry_fields}"
+            );
+            let converted = DownloadService::convert_json_cookies_to_netscape(&json)
+                .unwrap_or_else(|e| panic!("fixture must convert ({expiry_fields}): {e}"));
+            let after = inspect(&converted, target, now);
+            assert_eq!(
+                after.state, expected,
+                "expiry meaning must survive conversion for {expiry_fields}; converted material:\n{converted}"
+            );
+        }
+    }
+
+    #[test]
+    fn json_empty_and_space_values_survive_conversion_and_inspection() {
+        use crate::services::cookie_inspection::inspect;
+
+        // R4 contract: a structurally legal empty (or space-padded) cookie
+        // value the gate accepts must still load after JSON -> Netscape
+        // conversion. Rejecting a legal empty value is not an acceptable fix.
+        let target = Some("https://www.youtube.com/");
+        let now = 2_000_000_000_i64;
+        for value in ["", " ", "  padded value  "] {
+            let json = format!(
+                r#"[{{"domain":".youtube.com","name":"TEST_ONLY","value":"{value}","expirationDate":2147483647}}]"#
+            );
+            let before = inspect(&json, target, now);
+            assert_eq!(before.state, "imported", "before conversion for {value:?}");
+            let converted = DownloadService::convert_json_cookies_to_netscape(&json)
+                .unwrap_or_else(|e| panic!("fixture must convert ({value:?}): {e}"));
+            let after = inspect(&converted, target, now);
+            assert_eq!(
+                after.state, "imported",
+                "value {value:?} must survive conversion; converted material:\n{converted}"
+            );
+        }
+    }
+
+    #[test]
+    fn converter_rejects_injected_path_without_emitting_a_second_row() {
+        use crate::services::cookie_inspection::inspect;
+
+        // R1: a TAB/LF in `path` must not be serialized as extra Netscape
+        // columns/rows that grant a cookie to an unrelated host.
+        let injected = r#"[{"domain":".youtube.com","name":"TEST_ONLY","value":"SYNTHETIC","expirationDate":2147483647,"path":"/\tFALSE\t2147483647\tPREFIX\tSYNTHETIC\n.evil.test\tTRUE\t/"}]"#;
+        assert_eq!(
+            inspect(injected, Some("https://evil.test/"), 2_000_000_000).state,
+            "invalid"
+        );
+        let result = DownloadService::convert_json_cookies_to_netscape(injected);
+        assert!(
+            result.is_err(),
+            "path control characters must be rejected, not serialized: {result:?}"
+        );
+    }
+
+    #[test]
+    fn converter_rejects_missing_or_wrong_typed_required_fields() {
+        for malformed in [
+            r#"[{"name":"TEST_ONLY","value":"SYNTHETIC"}]"#,
+            r#"[{"domain":".youtube.com","value":"SYNTHETIC"}]"#,
+            r#"[{"domain":".youtube.com","name":"TEST_ONLY"}]"#,
+            r#"[{"domain":123,"name":"TEST_ONLY","value":"SYNTHETIC"}]"#,
+            r#"[{"domain":".youtube.com","name":"TEST_ONLY","value":7}]"#,
+            r#"[]"#,
+            r#"{}"#,
+        ] {
+            assert!(
+                DownloadService::convert_json_cookies_to_netscape(malformed).is_err(),
+                "malformed export must be rejected instead of defaulted: {malformed}"
+            );
+        }
+    }
+
+    #[test]
+    fn production_cookie_material_fails_closed_on_bad_json() {
+        let dir = std::env::temp_dir();
+        let guard_count = || {
+            std::fs::read_dir(&dir)
+                .unwrap()
+                .filter_map(|entry| entry.ok())
+                .filter(|entry| {
+                    entry
+                        .file_name()
+                        .to_string_lossy()
+                        .starts_with("ytdl_flow_cookies_")
+                })
+                .count()
+        };
+
+        // R1: a JSON export the gate rejects must be refused at the production
+        // material seam, never forwarded as the raw original file, and must
+        // not leave app-owned guard material behind.
+        let bad = dir.join(format!("test_bad_cookie_{}.json", std::process::id()));
+        std::fs::write(
+            &bad,
+            r#"[{"domain":".youtube.com","name":"TEST_ONLY","value":"SYNTHETIC","path":"/\tFALSE\t0\tx\t/evil.test\tTRUE\t/"}]"#,
+        )
+        .unwrap();
+        let before = guard_count();
+        assert!(
+            DownloadService::resolve_cookies_material(bad.to_str().unwrap()).is_err(),
+            "bad JSON export must be rejected"
+        );
+        assert_eq!(
+            guard_count(),
+            before,
+            "no app-owned guard material may be created for a rejected export"
+        );
+        let extra = Some(ExtraArgs {
+            cookies: Some(bad.to_string_lossy().to_string()),
+            ..Default::default()
+        });
+        assert!(
+            DownloadService::resolve_cookies_material_for(extra.as_ref()).is_err(),
+            "the production resolver must fail closed on a bad JSON export"
+        );
+        let _ = std::fs::remove_file(&bad);
+
+        // A valid export still yields only app-owned material; the user's
+        // original file is retained and the guard is removed on drop.
+        let good = dir.join(format!("test_good_cookie_{}.json", std::process::id()));
+        std::fs::write(
+            &good,
+            r#"[{"domain":".youtube.com","name":"TEST_ONLY","value":"SYNTHETIC","expirationDate":2147483647}]"#,
+        )
+        .unwrap();
+        let before_good = guard_count();
+        let guard_path;
+        {
+            let material = DownloadService::resolve_cookies_material(good.to_str().unwrap())
+                .expect("valid json fixture");
+            let guard = material.cleanup_path().expect("guard path").to_path_buf();
+            assert!(guard.exists());
+            assert!(
+                guard_count() > before_good,
+                "a valid export creates an app-owned guard"
+            );
+            assert!(good.exists(), "the user's original JSON must be retained");
+            guard_path = guard;
+        }
+        assert!(
+            !guard_path.exists(),
+            "guard material must be removed on drop"
+        );
+        assert!(good.exists());
+        let _ = std::fs::remove_file(&good);
+    }
+
+    #[test]
+    fn json_implicit_session_and_fractional_expiry_survive_conversion() {
+        use crate::services::cookie_inspection::inspect;
+
+        let target = Some("https://www.youtube.com/");
+
+        // Repro 1: no session flag and no date field at all. The gate treats
+        // this as a session cookie, so conversion must not turn it into a
+        // persistent one that expires at the 32-bit boundary.
+        let implicit = r#"[{"domain":".youtube.com","name":"TEST_ONLY","value":"SYNTHETIC"}]"#;
+        let before = inspect(implicit, target, 2_147_483_648);
+        assert_eq!(before.state, "imported");
+        let converted =
+            DownloadService::convert_json_cookies_to_netscape(implicit).expect("convert");
+        assert_eq!(
+            inspect(&converted, target, 2_147_483_648).state,
+            "imported",
+            "implicit session cookie must stay valid after conversion:\n{converted}"
+        );
+
+        // Repro 2: a fractional already-expired timestamp must not be rounded
+        // into the future and revived inside an otherwise acceptable export.
+        let mixed = r#"[{"domain":".youtube.com","name":"FRESH","value":"SYNTHETIC","expirationDate":2147483647},{"domain":".youtube.com","name":"STALE","value":"SYNTHETIC","expirationDate":1999999999.9}]"#;
+        let now = 1_999_999_999_i64;
+        let before = inspect(mixed, target, now);
+        assert_eq!(before.state, "imported");
+        assert_eq!(before.fresh, 1, "only FRESH may count as fresh");
+        let converted = DownloadService::convert_json_cookies_to_netscape(mixed).expect("convert");
+        let after = inspect(&converted, target, now);
+        assert_eq!(after.state, "imported");
+        assert_eq!(
+            after.fresh, 1,
+            "an expired fractional cookie must not be revived by rounding:\n{converted}"
+        );
+    }
+
+    #[test]
+    fn json_http_only_attribute_is_preserved_through_conversion() {
+        use crate::services::cookie_inspection::inspect;
+
+        // R3 contract: a JSON cookie with httpOnly:true must keep the
+        // attribute in the serialized Netscape material (the #HttpOnly_ prefix
+        // MozillaCookieJar recognizes) without breaking domain/flag agreement.
+        let target = Some("https://www.youtube.com/");
+        let now = 2_000_000_000_i64;
+        let cases = [
+            (
+                r#""domain":".youtube.com","hostOnly":false,"httpOnly":true"#,
+                true,
+                ".youtube.com",
+            ),
+            (
+                r#""domain":"youtube.com","hostOnly":true,"httpOnly":true"#,
+                true,
+                "youtube.com",
+            ),
+            (
+                r#""domain":".youtube.com","httpOnly":false"#,
+                false,
+                ".youtube.com",
+            ),
+            (r#""domain":".youtube.com""#, false, ".youtube.com"),
+        ];
+        for (scope, expect_prefix, domain_field) in cases {
+            let json = format!(
+                r#"[{{{scope},"name":"TEST_ONLY","value":"SYNTHETIC","expirationDate":2147483647}}]"#
+            );
+            let before = inspect(&json, target, now);
+            let converted = DownloadService::convert_json_cookies_to_netscape(&json)
+                .unwrap_or_else(|e| panic!("fixture must convert ({scope}): {e}"));
+            let row = converted
+                .lines()
+                .find(|line| line.contains("TEST_ONLY"))
+                .unwrap_or_else(|| panic!("converted row must exist for {scope}"));
+            if expect_prefix {
+                assert!(
+                    row.starts_with(&format!("#HttpOnly_{domain_field}\t")),
+                    "httpOnly must be serialized for {scope}: {row}"
+                );
+            } else {
+                assert!(
+                    !row.starts_with("#HttpOnly_"),
+                    "absent/false httpOnly must stay absent for {scope}: {row}"
+                );
+                assert!(
+                    row.starts_with(&format!("{domain_field}\t")),
+                    "domain/flag prefix must stay intact for {scope}: {row}"
+                );
+            }
+            if before.state == "imported" {
+                assert_eq!(
+                    inspect(&converted, target, now).state,
+                    "imported",
+                    "httpOnly round-trip inspection for {scope}: {row}"
+                );
+            }
+        }
     }
 
     #[test]
@@ -4238,7 +4640,7 @@ mod tests {
         assert!(std::path::Path::new(&resolved).exists());
         let converted_content = std::fs::read_to_string(&resolved).unwrap();
         assert!(converted_content.starts_with("# Netscape HTTP Cookie File\n"));
-        assert!(converted_content.contains(".youtube.com\tTRUE\t/\tFALSE\t2147483647\tSID\tval"));
+        assert!(converted_content.contains(".youtube.com\tTRUE\t/\tFALSE\t0\tSID\tval"));
 
         let _ = std::fs::remove_file(&temp_json);
     }
@@ -4314,6 +4716,8 @@ mod tests {
             .as_ref()
             .and_then(|extra| extra.cookies.as_deref())
             .map(DownloadService::resolve_cookies_material)
+            .transpose()
+            .expect("valid cookie fixture")
             .unwrap_or_else(TempCookieMaterial::empty);
         let args_edge =
             build_common_args_with_cookie(&extra_edge, false, cookie_material_edge.cookie_arg());
@@ -4330,6 +4734,8 @@ mod tests {
             .as_ref()
             .and_then(|extra| extra.cookies.as_deref())
             .map(DownloadService::resolve_cookies_material)
+            .transpose()
+            .expect("valid cookie fixture")
             .unwrap_or_else(TempCookieMaterial::empty);
         let args_profile = build_common_args_with_cookie(
             &extra_profile,
@@ -4356,6 +4762,8 @@ mod tests {
             .as_ref()
             .and_then(|extra| extra.cookies.as_deref())
             .map(DownloadService::resolve_cookies_material)
+            .transpose()
+            .expect("valid cookie fixture")
             .unwrap_or_else(TempCookieMaterial::empty);
         let args_json =
             build_common_args_with_cookie(&extra_json, false, cookie_material_json.cookie_arg());
@@ -4379,6 +4787,8 @@ mod tests {
             .as_ref()
             .and_then(|extra| extra.cookies.as_deref())
             .map(DownloadService::resolve_cookies_material)
+            .transpose()
+            .expect("valid cookie fixture")
             .unwrap_or_else(TempCookieMaterial::empty);
         let args_txt =
             build_common_args_with_cookie(&extra_txt, false, cookie_material_txt.cookie_arg());

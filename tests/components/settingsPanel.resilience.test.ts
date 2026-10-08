@@ -1,6 +1,14 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { createSSRApp } from 'vue';
+import { renderToString } from 'vue/server-renderer';
+import { createPinia } from 'pinia';
+import { createI18n } from 'vue-i18n';
+import { describe, expect, it, vi } from 'vitest';
+import SettingsPanel from '../../src/components/SettingsPanel.vue';
+import { useAppStore } from '../../src/stores/appStore';
+import zh from '../../src/locales/zh-CN.json';
+import en from '../../src/locales/en-US.json';
 
 const source = readFileSync(resolve('src/components/SettingsPanel.vue'), 'utf8');
 
@@ -70,10 +78,105 @@ describe('SettingsPanel resilience contracts', () => {
     expect(source).toMatch(/v-if="youtubeAuthStatus"[^>]*role="alert"/);
   });
 
-  it('surfaces YouTube native file-picker and external-login failures inside the auth modal', () => {
-    expect(source).toMatch(/selectCookieFile[\s\S]*?catch \(e\)[\s\S]*?youtubeAuthStatus\.value/);
+  it('surfaces YouTube native file-picker and external-login failures inside the auth modal without leaking raw errors, private paths, accounts, or cookies to DOM or console', async () => {
+    expect(source).toMatch(/selectCookieFile[\s\S]*?catch[\s\S]*?youtubeAuthStatus\.value/);
     expect(source).toMatch(/settings\.youtube_auth\.file_select_failed/);
-    expect(source).toMatch(/openYouTubeLogin[\s\S]*?catch \(e\)[\s\S]*?youtubeAuthStatus\.value/);
+    expect(source).toMatch(/openYouTubeLogin[\s\S]*?catch[\s\S]*?youtubeAuthStatus\.value/);
     expect(source).toMatch(/settings\.youtube_auth\.login_open_failed/);
+
+    for (const locale of ['zh-CN', 'en-US'] as const) {
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      try {
+        const pinia = createPinia();
+        const store = useAppStore(pinia);
+        const rawMarker =
+          'SYNTHETIC_NATIVE_ERROR C:/fixtures/private-account/cookies.txt account=secret-user@example.com SAPISID=SECRET_COOKIE_VALUE';
+        store.chooseCookieFile = async () => {
+          throw new Error(rawMarker);
+        };
+        store.openExternalUrl = async () => {
+          throw new Error(rawMarker);
+        };
+
+        const i18n = createI18n({
+          legacy: false,
+          locale,
+          messages: { 'zh-CN': zh, 'en-US': en },
+        });
+        let state: {
+          showYouTubeModal?: boolean;
+          selectCookieFile: () => Promise<void>;
+          openYouTubeLogin: () => Promise<void>;
+          youtubeAuthStatus: { success: boolean; message: string } | null;
+        } | undefined;
+
+        const createHarness = () => {
+          const app = createSSRApp(SettingsPanel);
+          app.use(pinia).use(i18n);
+          app.mixin({
+            created() {
+              const setupState = (this as { $?: { setupState?: typeof state } }).$?.setupState;
+              if (setupState?.selectCookieFile) {
+                setupState.showYouTubeModal = true;
+                state = setupState;
+              }
+            },
+          });
+          return app;
+        };
+
+        await renderToString(createHarness());
+        expect(state).toBeDefined();
+
+        await state!.selectCookieFile();
+        expect(state!.youtubeAuthStatus?.success).toBe(false);
+        expect(state!.youtubeAuthStatus?.message).toBe(
+          i18n.global.t('settings.youtube_auth.file_select_failed'),
+        );
+        for (const forbidden of [
+          'SYNTHETIC_NATIVE_ERROR',
+          'private-account',
+          'secret-user@example.com',
+          'SECRET_COOKIE_VALUE',
+          '{error}',
+        ]) {
+          expect(state!.youtubeAuthStatus?.message).not.toContain(forbidden);
+        }
+
+        await state!.openYouTubeLogin();
+        expect(state!.youtubeAuthStatus?.success).toBe(false);
+        expect(state!.youtubeAuthStatus?.message).toBe(
+          i18n.global.t('settings.youtube_auth.login_open_failed'),
+        );
+        for (const forbidden of [
+          'SYNTHETIC_NATIVE_ERROR',
+          'private-account',
+          'secret-user@example.com',
+          'SECRET_COOKIE_VALUE',
+          '{error}',
+        ]) {
+          expect(state!.youtubeAuthStatus?.message).not.toContain(forbidden);
+        }
+
+        const loggedText = [
+          ...consoleErrorSpy.mock.calls,
+          ...consoleWarnSpy.mock.calls,
+          ...consoleLogSpy.mock.calls,
+        ]
+          .flat()
+          .map((arg) => String(arg))
+          .join(' ');
+        expect(loggedText).not.toMatch(
+          /SYNTHETIC_NATIVE_ERROR|private-account|secret-user@example\.com|SECRET_COOKIE_VALUE/,
+        );
+      } finally {
+        consoleErrorSpy.mockRestore();
+        consoleWarnSpy.mockRestore();
+        consoleLogSpy.mockRestore();
+      }
+    }
   });
+
 });

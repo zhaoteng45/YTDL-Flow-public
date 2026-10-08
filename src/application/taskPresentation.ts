@@ -5,6 +5,7 @@ import type {
   CurrentTaskActions,
   CurrentTaskFailureCode,
   CurrentTaskRow,
+  CurrentCredentialSelection,
 } from '../../packages/contracts/src';
 import type { DownloadFormat } from '../types';
 import { redactSensitiveText } from '../utils/redactSensitiveText';
@@ -23,6 +24,7 @@ export interface TaskPresentationRow {
   readonly url: string;
   readonly status: TaskPresentationStatus;
   readonly metadata?: Readonly<CurrentAnalysisMedia>;
+  readonly credential?: Readonly<CurrentCredentialSelection>;
   readonly capture?: TaskPresentationCaptureRef;
   readonly progress: number;
   readonly speed?: string;
@@ -81,18 +83,72 @@ function cloneMetadata(
   };
 }
 
+const CREDENTIAL_REASONS_BY_SOURCE: Readonly<
+  Record<CurrentCredentialSelection['source'], ReadonlySet<CurrentCredentialSelection['reason']>>
+> = {
+  browser: new Set(['browser-ok']),
+  file: new Set(['file-ok', 'backup-file']),
+  anonymous: new Set([
+    'unconfigured',
+    'browser-unavailable',
+    'backup-not-authorized',
+    'backup-unavailable',
+    'preferred-file-unavailable',
+    'smart-anonymous',
+  ]),
+};
+
+const CREDENTIAL_BROWSER_FAILURES: ReadonlySet<
+  NonNullable<CurrentCredentialSelection['browserFailure']>
+> = new Set([
+  'invalid_browser',
+  'locked',
+  'permission_denied',
+  'not_found',
+  'decrypt_failed',
+  'execution_failed',
+]);
+
+const CREDENTIAL_FILE_FAILURES: ReadonlySet<
+  NonNullable<CurrentCredentialSelection['fileFailure']>
+> = new Set(['invalid', 'expired', 'mismatch', 'unreadable']);
+
+function cloneCredential(
+  credential: Readonly<CurrentCredentialSelection> | undefined,
+): Readonly<CurrentCredentialSelection> | undefined {
+  if (!credential) return undefined;
+  const allowedReasons = CREDENTIAL_REASONS_BY_SOURCE[credential.source];
+  if (!allowedReasons || !allowedReasons.has(credential.reason)) return undefined;
+  const browserFailure =
+    credential.browserFailure && CREDENTIAL_BROWSER_FAILURES.has(credential.browserFailure)
+      ? credential.browserFailure
+      : undefined;
+  const fileFailure =
+    credential.fileFailure && CREDENTIAL_FILE_FAILURES.has(credential.fileFailure)
+      ? credential.fileFailure
+      : undefined;
+  return {
+    source: credential.source,
+    reason: credential.reason,
+    ...(browserFailure ? { browserFailure } : {}),
+    ...(fileFailure ? { fileFailure } : {}),
+  };
+}
+
 export function toCurrentTaskPresentationRow(row: CurrentTaskRow): TaskPresentationRow {
   const logs = row.logs.map(redactSensitiveText);
   const failure = row.failureReason ? redactSensitiveText(row.failureReason) : undefined;
   if (row.status === 'error' && failure && !logs.some((line) => line.includes(failure))) {
     logs.push(`[ERROR] ${failure}`);
   }
+  const credential = cloneCredential(row.credential);
   return {
     id: row.attemptId,
     rowId: row.rowId,
     url: row.sourceUrl,
     status: row.status,
     ...(row.metadata ? { metadata: cloneMetadata(row) } : {}),
+    ...(credential ? { credential } : {}),
     ...(row.capture ? { capture: { ...row.capture } } : {}),
     progress: row.progress,
     ...(row.speed ? { speed: row.speed } : {}),

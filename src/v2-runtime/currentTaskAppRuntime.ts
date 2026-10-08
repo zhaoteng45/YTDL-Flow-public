@@ -2,15 +2,19 @@ import type { CurrentExtraArgs } from '../../packages/contracts/src';
 import {
   createCurrentTaskRuntime,
   type CurrentTaskRuntime,
+  type CurrentTaskRuntimeOptions,
 } from './currentTaskRuntime';
 import { CurrentTauriMediaAnalyzer } from './currentTauriMediaAnalyzer';
 import { TauriDownloadEngine } from './tauriDownloadEngine';
 import { createCurrentTaskEffectsPort } from './currentTaskEffects';
 import { CurrentTaskNativeLogBridge } from './currentTaskNativeLogs';
 import { createCaptureFacade, type CaptureFacade } from './capture/captureFacade';
+import type { PrepareCurrentAnalysis } from '../../packages/application/src/current-analysis-service';
 
 export interface CurrentTaskAppRuntimeOptions {
   getGlobalExtraArgs(sourceUrl?: string): CurrentExtraArgs;
+  getAnalysisExtraArgs?: PrepareCurrentAnalysis;
+  validateDownloadCredential?: CurrentTaskRuntimeOptions['environment']['validateDownloadCredential'];
   getDownloadDir(): string | undefined;
 }
 
@@ -31,6 +35,8 @@ export function createCurrentTaskAppRuntime(
     analyzer: new CurrentTauriMediaAnalyzer(),
     environment: {
       getGlobalExtraArgs: options.getGlobalExtraArgs,
+      getAnalysisExtraArgs: options.getAnalysisExtraArgs,
+      validateDownloadCredential: options.validateDownloadCredential,
       getDownloadDir: options.getDownloadDir,
     },
     effectsPort: createCurrentTaskEffectsPort(),
