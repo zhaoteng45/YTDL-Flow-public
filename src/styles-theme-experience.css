@@ -1627,7 +1627,7 @@
 :root:is([data-theme="cobalt-butter"], [data-theme="fluent"], [data-theme="material"]) .download-card {
   border-width: 1px; border-color: var(--theme-line-subtle); box-shadow: none;
 }
-:root:is([data-theme="cobalt-butter"], [data-theme="fluent"], [data-theme="material"]) .download-card .card-main { padding: 20px; gap: 16px; }
+:root:is([data-theme="cobalt-butter"], [data-theme="fluent"], [data-theme="material"]) .download-card .card-main { padding: 14px 16px; gap: 14px; }
 :root:is([data-theme="cobalt-butter"], [data-theme="fluent"], [data-theme="material"]) .download-card .title-wrapper { flex-wrap: wrap; gap: 8px; }
 :root:is([data-theme="cobalt-butter"], [data-theme="fluent"], [data-theme="material"]) .download-card .title { flex: 1 1 280px; }
 

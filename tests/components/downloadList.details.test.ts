@@ -84,6 +84,14 @@ async function renderList(
 }
 
 describe('DownloadList task details and credential source display', () => {
+  it('offers download all for ready rows only and hides their idle progress bars', async () => {
+    const html = await renderList([makeRow('ready', 'analyzed'), makeRow('running', 'downloading')]);
+    expect(html).toContain('下载全部待下载（1）');
+    expect((html.match(/role="progressbar"/g) ?? []).length).toBe(1);
+    const empty = await renderList([makeRow('done', 'completed')]);
+    expect(empty).toMatch(/class="[^"]*download-all-button[^"]*"[^>]*disabled/);
+  });
+
   it('keeps advanced task details closed while retaining direct log access', async () => {
     const html = await renderList(
       [

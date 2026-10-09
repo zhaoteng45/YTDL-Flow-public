@@ -1,4 +1,4 @@
-import { createApp, h, nextTick } from 'vue';
+import { createApp, h, nextTick, ref } from 'vue';
 import { createI18n } from 'vue-i18n';
 
 import DownloadList from '../../src/components/DownloadList.vue';
@@ -246,6 +246,7 @@ const themes = Object.values(THEMES);
 const failures: MatrixFailure[] = [];
 let passed = 0;
 let app: ReturnType<typeof createApp> | undefined;
+let finishDownloadAll = () => {};
 
 const settle = async () => {
   await nextTick();
@@ -254,7 +255,9 @@ const settle = async () => {
 
 async function mount(locale: Locale, rows: readonly TaskPresentationRow[] = scenarios.map((scenario) => scenario.row)) {
   app?.unmount();
-  const events: Array<{ rowId?: string; format?: string }> = [];
+  const events: Array<{ rowId?: string; format?: string; options?: Record<string, unknown> }> = [];
+  const downloadAllPending = ref(false);
+  finishDownloadAll = () => { downloadAllPending.value = false; };
   const i18n = createI18n({
     legacy: false,
     locale,
@@ -266,7 +269,9 @@ async function mount(locale: Locale, rows: readonly TaskPresentationRow[] = scen
         items: [...rows],
         adminMode: false,
         maxConcurrency: 1,
+        downloadAllPending: downloadAllPending.value,
         onDownload: (payload: { rowId?: string; format?: string }) => events.push(payload),
+        onDownloadAll: (payloads: typeof events) => { downloadAllPending.value = true; events.push(...payloads); },
       }),
   });
   app.use(i18n);
@@ -576,6 +581,33 @@ async function validateKeyboardRemovalContract() {
   }
 }
 
+async function validateDownloadAll() {
+  const locale: Locale = 'zh-CN';
+  const theme = THEMES.COBALT_BUTTER;
+  const width = 960;
+  const events = await mount(locale, [row('ready-video', 'analyzed'), row('ready-audio', 'analyzed', { selectedFormat: 'mp3' }), row('queued', 'queued'), row('failed', 'error', { failureKind: 'download' })]);
+  const video = host.querySelector<HTMLElement>('[data-row-id="ready-video"]');
+  video?.querySelector<HTMLButtonElement>('.task-details-toggle')?.click();
+  await settle();
+  const start = video?.querySelector<HTMLInputElement>('input[placeholder="0:00"]');
+  if (start) { start.value = '0:10'; start.dispatchEvent(new Event('input', { bubbles: true })); }
+  await settle();
+  const search = host.querySelector<HTMLInputElement>('.search-input');
+  if (search) { search.value = 'ready-video'; search.dispatchEvent(new Event('input', { bubbles: true })); }
+  await settle();
+  const button = host.querySelector<HTMLButtonElement>('.download-all-button');
+  check(locale, theme, width, button?.textContent?.includes('（2）'), 'download all counts ready tasks independently of filters');
+  button?.click();
+  button?.click();
+  await settle();
+  check(locale, theme, width, events.length === 2 && events[0]?.rowId === 'ready-video' && events[1]?.rowId === 'ready-audio', 'download all dispatches ready tasks once, excluding queued and failed');
+  check(locale, theme, width, events[0]?.format === 'video' && events[0]?.options?.sectionStart === 10 && events[1]?.format === 'mp3', 'download all preserves per-task format and options');
+  check(locale, theme, width, button?.disabled && !video?.querySelector('[role="progressbar"]'), 'download all locks while pending and ready tasks have no idle bar');
+  finishDownloadAll();
+  await settle();
+  check(locale, theme, width, button?.disabled === false, 'download all unlocks after settlement so rejected tasks can be attempted again');
+}
+
 async function run() {
   const total = locales.length * themes.length * widths.length;
   let combinations = 0;
@@ -595,6 +627,7 @@ async function run() {
   }
 
   await validateKeyboardRemovalContract();
+  await validateDownloadAll();
 
   document.documentElement.dataset.theme = THEMES.COBALT_BUTTER;
   host.style.width = '960px';

@@ -32,10 +32,12 @@ import NeoIcon from './NeoIcon.vue';
 
 const {
   items,
+  downloadAllPending = false,
 } = defineProps<{
   items: TaskPresentationRow[];
   adminMode: boolean;
   maxConcurrency?: number;
+  downloadAllPending?: boolean;
 }>();
 
 const { t } = useI18n();
@@ -48,6 +50,7 @@ interface DownloadPayload {
 
 const emit = defineEmits<{
   (e: 'download', payload: DownloadPayload): void;
+  (e: 'download-all', payloads: DownloadPayload[]): void;
   (e: 'cancel', rowId: string): void;
   (e: 'retry-download', rowId: string): void;
   (e: 'reanalyze', rowId: string): void;
@@ -113,17 +116,36 @@ const handleFormatKeydown = (rowId: string, event: KeyboardEvent) => {
 const getRowFormat = (task: TaskPresentationRow): DownloadFormat =>
   resolveRowFormat(task, rowFormatSelections.value);
 
+const readyRows = computed(() => items.filter(task => getPrimaryTaskAction(task) === 'download'));
+const bulkRequestPending = ref(false);
+watch(() => downloadAllPending, (pending) => {
+  if (!pending) bulkRequestPending.value = false;
+});
+const downloadPayloadFor = (task: TaskPresentationRow): DownloadPayload | undefined => {
+  try {
+    const options = resolveTaskDownloadOptions(optionsFor(task.rowId), task.metadata?.availableFormats ?? [], getRowFormat(task));
+    rowOptionErrors.value[task.rowId] = '';
+    return { rowId: task.rowId, format: getRowFormat(task), ...(Object.keys(options).length ? { options } : {}) };
+  } catch (error) {
+    rowOptionErrors.value[task.rowId] = t(`download_list.task_options.${error instanceof Error && error.message === 'TASK_FORMAT_UNAVAILABLE' ? 'invalid_format' : 'invalid_section'}`);
+    return undefined;
+  }
+};
+const downloadAll = () => {
+  if (downloadAllPending || bulkRequestPending.value) return;
+  const payloads = readyRows.value.map(downloadPayloadFor).filter((payload): payload is DownloadPayload => payload !== undefined);
+  if (!payloads.length) return;
+  bulkRequestPending.value = true;
+  emit('download-all', payloads);
+};
+
 const performPrimaryTaskAction = (task: TaskPresentationRow) => {
   switch (getPrimaryTaskAction(task)) {
-    case 'download':
-      try {
-        const options = resolveTaskDownloadOptions(optionsFor(task.rowId), task.metadata?.availableFormats ?? [], getRowFormat(task));
-        rowOptionErrors.value[task.rowId] = '';
-        emit('download', { rowId: task.rowId, format: getRowFormat(task), ...(Object.keys(options).length ? { options } : {}) });
-      } catch (error) {
-        rowOptionErrors.value[task.rowId] = t(`download_list.task_options.${error instanceof Error && error.message === 'TASK_FORMAT_UNAVAILABLE' ? 'invalid_format' : 'invalid_section'}`);
-      }
+    case 'download': {
+      const payload = downloadPayloadFor(task);
+      if (payload) emit('download', payload);
       break;
+    }
     case 'cancel':
       emit('cancel', task.rowId);
       break;
@@ -646,7 +668,13 @@ const getProgressColor = (status: TaskPresentationRow['status']) => {
           </button>
         </div>
 
-
+        <button type="button" class="neo-button primary download-all-button"
+          :disabled="readyRows.length === 0 || downloadAllPending || bulkRequestPending"
+          :aria-busy="downloadAllPending || bulkRequestPending"
+          @click="downloadAll">
+          <NeoIcon name="download" :size="16" />
+          {{ t('download_list.actions.download_all', { count: readyRows.length }) }}
+        </button>
       </div>
     </div>
 
@@ -769,7 +797,7 @@ const getProgressColor = (status: TaskPresentationRow['status']) => {
                   </div>
                 </details>
               </div>
-              <div class="progress-section">
+              <div v-if="item.status !== 'analyzed'" class="progress-section">
                 <div
                   class="progress-track"
                   role="progressbar"
@@ -1165,6 +1193,11 @@ const getProgressColor = (status: TaskPresentationRow['status']) => {
   gap: var(--spacing-sm);
 }
 
+.download-all-button {
+  min-height: 44px;
+  white-space: nowrap;
+}
+
 .search-input-shell {
   position: relative;
   flex: 1 1 220px;
@@ -1365,7 +1398,7 @@ const getProgressColor = (status: TaskPresentationRow['status']) => {
   display: flex;
   align-items: flex-start;
   gap: var(--spacing-md);
-  padding: var(--spacing-md);
+  padding: 12px var(--spacing-md);
   border: 0;
   box-shadow: none;
   background: transparent;
@@ -1418,7 +1451,7 @@ const getProgressColor = (status: TaskPresentationRow['status']) => {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .header-row {

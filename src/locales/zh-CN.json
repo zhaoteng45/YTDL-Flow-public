@@ -478,6 +478,7 @@
       "action": "操作"
     },
     "actions": {
+      "download_all": "下载全部待下载（{count}）",
       "cmd": "显示/隐藏 命令行",
       "log": "显示/隐藏 详细日志",
       "show_log": "展开日志",

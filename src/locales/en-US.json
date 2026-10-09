@@ -478,6 +478,7 @@
       "action": "Action"
     },
     "actions": {
+      "download_all": "Download all ready ({count})",
       "cmd": "Show/Hide CMD",
       "log": "Show/Hide Logs",
       "show_log": "Show logs",

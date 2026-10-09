@@ -137,6 +137,24 @@ const handleTaskDownload = async (payload: { rowId: string, format: DownloadForm
   }
 };
 
+const downloadAllPending = ref(false);
+const handleDownloadAll = async (payloads: { rowId: string, format: DownloadFormat, options?: Partial<ExtraArgs> }[]) => {
+  if (downloadAllPending.value) return;
+  downloadAllPending.value = true;
+  actionNotice.value = '';
+  try {
+    await Promise.all(payloads.map(async payload => {
+      try {
+        await taskActions.startDownload(payload.rowId, payload.format, payload.options);
+      } catch (error) {
+        setTaskActionFailure(error);
+      }
+    }));
+  } finally {
+    downloadAllPending.value = false;
+  }
+};
+
 const handleTaskCancel = async (rowId: string) => {
   actionNotice.value = '';
   try {
@@ -340,10 +358,12 @@ onUnmounted(async () => {
             :items="tasks"
             :admin-mode="!!extraArgs.adminMode"
             :max-concurrency="1"
+            :download-all-pending="downloadAllPending"
             @open-folder="handleTaskOpenFolder"
             @recover="handleTaskRecovery"
             @cancel="handleTaskCancel"
             @download="handleTaskDownload"
+            @download-all="handleDownloadAll"
             @remove="handleTaskRemove"
             @retry-download="handleTaskRetryDownload"
             @reanalyze="handleTaskReanalyze"
