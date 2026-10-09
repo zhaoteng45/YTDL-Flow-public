@@ -169,6 +169,13 @@ impl Drop for TempCookieMaterial {
 
 static COOKIE_TEMP_SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
+#[cfg(test)]
+std::thread_local! {
+    // The material seam is synchronous. Count write attempts on the calling
+    // test thread so parallel tests cannot affect rejection assertions.
+    static COOKIE_TEMP_WRITE_ATTEMPTS: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+}
+
 /// 所有任务共用的基础参数（与用户设置无关）
 fn build_base_args_for(captured: bool) -> Vec<String> {
     let mut args = vec![
@@ -919,6 +926,8 @@ impl DownloadService {
 
     /// 把已校验的 Netscape 内容写入本应用独占的临时素材文件。
     fn write_temp_cookie_material(netscape: &str) -> std::io::Result<std::path::PathBuf> {
+        #[cfg(test)]
+        COOKIE_TEMP_WRITE_ATTEMPTS.with(|count| count.set(count.get() + 1));
         let seq = COOKIE_TEMP_SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         let pid = std::process::id();
         let timestamp = std::time::SystemTime::now()
@@ -4441,18 +4450,7 @@ mod tests {
     #[test]
     fn production_cookie_material_fails_closed_on_bad_json() {
         let dir = std::env::temp_dir();
-        let guard_count = || {
-            std::fs::read_dir(&dir)
-                .unwrap()
-                .filter_map(|entry| entry.ok())
-                .filter(|entry| {
-                    entry
-                        .file_name()
-                        .to_string_lossy()
-                        .starts_with("ytdl_flow_cookies_")
-                })
-                .count()
-        };
+        let write_attempts = || COOKIE_TEMP_WRITE_ATTEMPTS.with(std::cell::Cell::get);
 
         // R1: a JSON export the gate rejects must be refused at the production
         // material seam, never forwarded as the raw original file, and must
@@ -4463,13 +4461,25 @@ mod tests {
             r#"[{"domain":".youtube.com","name":"TEST_ONLY","value":"SYNTHETIC","path":"/\tFALSE\t0\tx\t/evil.test\tTRUE\t/"}]"#,
         )
         .unwrap();
-        let before = guard_count();
+        let before = write_attempts();
+        // Deterministically hold material created by another test thread while
+        // this thread checks rejection. Shared-directory counts cannot prove
+        // which operation created a file.
+        let unrelated_material = std::thread::spawn(|| TempCookieMaterial {
+            cookie_arg: None,
+            cleanup_path: Some(
+                DownloadService::write_temp_cookie_material("# Netscape HTTP Cookie File\n")
+                    .expect("unrelated synthetic material"),
+            ),
+        })
+        .join()
+        .expect("unrelated test thread");
         assert!(
             DownloadService::resolve_cookies_material(bad.to_str().unwrap()).is_err(),
             "bad JSON export must be rejected"
         );
         assert_eq!(
-            guard_count(),
+            write_attempts(),
             before,
             "no app-owned guard material may be created for a rejected export"
         );
@@ -4481,6 +4491,12 @@ mod tests {
             DownloadService::resolve_cookies_material_for(extra.as_ref()).is_err(),
             "the production resolver must fail closed on a bad JSON export"
         );
+        assert_eq!(
+            write_attempts(),
+            before,
+            "neither resolver may attempt a write"
+        );
+        drop(unrelated_material);
         let _ = std::fs::remove_file(&bad);
 
         // A valid export still yields only app-owned material; the user's
@@ -4491,15 +4507,16 @@ mod tests {
             r#"[{"domain":".youtube.com","name":"TEST_ONLY","value":"SYNTHETIC","expirationDate":2147483647}]"#,
         )
         .unwrap();
-        let before_good = guard_count();
+        let before_good = write_attempts();
         let guard_path;
         {
             let material = DownloadService::resolve_cookies_material(good.to_str().unwrap())
                 .expect("valid json fixture");
             let guard = material.cleanup_path().expect("guard path").to_path_buf();
             assert!(guard.exists());
-            assert!(
-                guard_count() > before_good,
+            assert_eq!(
+                write_attempts(),
+                before_good + 1,
                 "a valid export creates an app-owned guard"
             );
             assert!(good.exists(), "the user's original JSON must be retained");
